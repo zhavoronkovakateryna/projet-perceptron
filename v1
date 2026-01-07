@@ -1,0 +1,35 @@
+class Perceptron:
+    def __init__(self, fonction=lambda x: x, data=None):
+        self.data = None
+        self.fonction = fonction
+        
+    def data_entry(self):
+        data = input('Transmettez vos données: ')
+        self.data = data #data est une liste des couples(entree, sortie attendue)
+    
+    def z(self, n, thta):
+        resultat = 0
+        for i in range(n):
+            resultat += self.poids[i]*self.data[i][0]
+        return resultat + self.biais
+    
+    def r(self, theta):
+        p = len(self.data)
+        resultat = 0
+        for i in range(p):
+            somme = self.z(i, theta)
+            resultat += (self.fonction(somme)-self.data[i][1])**2
+        return 1/(2*p) * resultat
+    
+    def gradient_a_pas_constant(self, theta0):
+        theta = theta0
+        epsilon = 10**(-4)
+        eta = 10**(-2)
+        n = 1000
+        test = abs(gradient(self.r(theta)))
+        while n>0 and test > epsilon:
+            n -=1
+            theta = theta-eta*gradient(self.r(theta))
+        return theta
+    
+def gradient(vecteur):
