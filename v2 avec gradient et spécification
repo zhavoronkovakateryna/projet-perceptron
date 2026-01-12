@@ -10,7 +10,7 @@ class Perceptron:
     def data_entry(self):
         """
         Fonction demandant et affecte le  array au perceptron <self>
-          
+
         Returns
         -------
         None.
@@ -59,41 +59,43 @@ class Perceptron:
             test = gradient1(self, theta)
         return theta
     
+    def gradient(self, vecteur):
+        """
+        Fonction calculant le gradient de la fonction associé au perceptron <self> en un point <vecteur>
+
+        Parameters
+        ----------
+        vecteur : array
+            de la forme np.array([float,])
+
+        Returns
+        -------
+        array
+            de la forme np.array([float,])
+        """
+        h=10**(-6)
+        tempo=np.array([float(i) for i in vecteur])
+        vect=[0.0 for i in vecteur]
+        for i in range(len(vecteur)):
+            tempo[i]=tempo[i]+h
+            vect[i]=(self.fonction(tempo)-self.fonction(vecteur))/h
+            tempo=np.array([float(i) for i in vecteur])
+        return np.array(vect)
+    
 def gradient(perceptron, theta):
     p = len(perceptron.data)
     d = len(theta)
     return None
 
 def f1(vecteur):
-    vect = [(vecteur[i][0]-1)**2 + (vecteur[i][1])**2 for i in range(len(vecteur))]
+    vect = (vecteur[0]-1)**2 + (vecteur[1])**2
     return vect
 
 def gradient1(perceptron, vecteur):
     return np.array((2*vecteur[0]-2, 2*vecteur[1]))
-
-def gradient(self, vecteur):
-    """
-    Fonction calculant le gradient de la fonction associé au perceptron <self> en un point <vecteur>
-
-    Parameters
-    ----------
-    vecteur : array
-        de la forme np.array([float,])
-
-    Returns
-    -------
-    array
-        de la forme np.array([float,])
-    """
-    h=10**(-6)
-    tempo=np.array([i for i in vecteur])
-    vect=[0 for i in vecteur]
-    for i in range(len(vecteur)):
-        tempo[i]=tempo[i]+h
-        vect[i]=(self.fonction(tempo)-self.fonction(vecteur))/h
-        tempo=np.array([i for i in vecteur])
-    return np.array(vect)
-    
+  
 #################################### Fonction de test ####################################
 p=Perceptron(f1)
 print(p.gradient_a_pas_constant((2,1)))
+
+print(p.gradient((1,1)))
