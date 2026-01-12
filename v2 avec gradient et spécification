@@ -19,6 +19,23 @@ class Perceptron:
         self.data = np.array(data) #data est une liste des couples(entree, sortie attendue)
     
     def z(self, n, theta): #zn = w*xn+b
+        """
+        Fonction calculant la combinaison linéaire des données du perceptron avec les paramètres theta
+        du perceptron jusqu'au rang n
+    
+        Parameters
+        ----------
+        n : int
+            le numéro de la composante de z qu'on calcule
+        theta : array
+            vecteur des paramètres du perceptron de dimension n+1 contenant les poids
+            et le biais (w1, ..., wn, b).
+    
+        Returns
+        -------
+        float
+            valeur réelle correspondant à zn = w·xn + b.
+        """
         w = theta[:-1]
         b = theta[-1]
         xn = np.array(self.data[n][0])
@@ -48,15 +65,29 @@ class Perceptron:
         return 1/(2*p) * resultat
     
     def gradient_a_pas_constant(self, theta0):
+        """
+        Fonction réalisant la minimisation de la fonction de coût R(theta) associée
+        au perceptron par la méthode de descente de gradient à pas constant
+    
+        Parameters
+        ----------
+        theta0 : array
+            vecteur initial des paramètres du perceptron (poids et biais).
+    
+        Returns
+        -------
+        array
+            vecteur des paramètres optimisés theta minimisant approximativement R(theta).
+        """
         theta = np.array(theta0)
         epsilon = 10**(-4)
         eta = 10**(-2)
         n = 1000
-        test = gradient1(self, theta)
+        test = self.gradient( theta)
         while n>0 and np.linalg.norm(test)>epsilon:
             n -=1
             theta = theta-eta*test
-            test = gradient1(self, theta)
+            test = self.gradient(theta)
         return theta
     
     def gradient(self, vecteur):
@@ -78,14 +109,10 @@ class Perceptron:
         vect=[0.0 for i in vecteur]
         for i in range(len(vecteur)):
             tempo[i]=tempo[i]+h
-            vect[i]=(self.fonction(tempo)-self.fonction(vecteur))/h
+            vect[i]=(self.r(tempo)-self.r(vecteur))/h
             tempo=np.array([float(i) for i in vecteur])
         return np.array(vect)
     
-def gradient(perceptron, theta):
-    p = len(perceptron.data)
-    d = len(theta)
-    return None
 
 def f1(vecteur):
     vect = (vecteur[0]-1)**2 + (vecteur[1])**2
@@ -99,3 +126,30 @@ p=Perceptron(f1)
 print(p.gradient_a_pas_constant((2,1)))
 
 print(p.gradient((1,1)))
+
+#  minimum en (1,2,3)
+def f5(vecteur):
+    return (vecteur[0]-1)**2 + (vecteur[1]-2)**2 + (vecteur[2]-3)**2
+
+#  minimum en (0,-1,2,1)
+def f6(vecteur):
+    return (vecteur[0])**2 + (vecteur[1]+1)**2 + (vecteur[2]-2)**2 + (vecteur[3]-1)**2
+
+#  minimum en (1,1,1,1,1)
+def f7(vecteur):
+    return sum((np.array(vecteur)-1)**2)
+
+p5 = Perceptron(f5)
+p=Perceptron(f5)
+print(p.gradient_a_pas_constant((0,0,0)))
+print(p.gradient((1,2,3)))
+
+p6 = Perceptron(f6)
+p=Perceptron(f6)
+print(p.gradient_a_pas_constant((1,1,1,1)))
+print(p.gradient(((0,-1,2,1)))
+
+p7 = Perceptron(f7)
+p=Perceptron(f7)
+print(p.gradient_a_pas_constant((5,0,-2,3,1)))
+print(p.gradient((1,1,1,1,1)))
