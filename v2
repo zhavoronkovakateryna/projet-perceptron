@@ -1,0 +1,57 @@
+# -*- coding: utf-8 -*-
+"""
+Spyder Editor
+
+This is a temporary script file.
+"""
+import numpy as np
+class Perceptron:
+    def __init__(self, fonction=lambda x: x, data=None):
+        self.data = data if data is not None else []
+        self.fonction = fonction
+        
+    def data_entry(self):
+        data = eval(input('Transmettez vos données: '))
+        self.data = data #data est une liste des couples(entree, sortie attendue)
+    
+    def z(self, n, theta): #zn = w*xn+b
+        w = theta[:-1]
+        b = theta[-1]
+        xn = np.array(self.data[n][0])
+        return np.dot(w, xn) + b
+    
+    def r(self, theta):
+        p = len(self.data)
+        resultat = 0
+        for i in range(p):
+            somme = self.z(i, theta)
+            y_barre = self.fonction(somme)
+            y = self.data[i][1]
+            resultat += (y_barre-y)**2
+        return 1/(2*p) * resultat
+    
+    def gradient_a_pas_constant(self, theta0):
+        theta = np.array(theta0)
+        epsilon = 10**(-4)
+        eta = 10**(-2)
+        n = 1000
+        test = gradient1(self, theta)
+        while n>0 and np.linalg.norm(test) > epsilon:
+            n -=1
+            theta = theta-eta*test
+            test = gradient1(self, theta)
+        return theta
+    
+def gradient(perceptron, theta):
+    p = len(perceptron.data)
+    d = len(theta)
+    return None
+
+
+
+def f1(vecteur):
+    vect = [(vecteur[i][0]-1)**2 +( vecteur[i][1])**2 for i in range(len(vecteur))]
+    return vect
+
+def gradient1(perceptron, vecteur):
+    return [(2*vecteur[0]-2, 2*vecteur[1])]
