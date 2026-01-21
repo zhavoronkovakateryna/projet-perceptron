@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 #################################### Import ####################################
 import numpy as np
-#################################### Main ####################################
+#################################### Main ######################################
 class Perceptron:
-    def __init__(self, fonction=lambda x: x, data=None):
-        self.data = np.array(data) if data is not None else np.array([])
+    def __init__(self, fonction=lambda x: x, data=[]):
+        self.data = np.array(data)
         self.fonction = fonction
         
     def data_entry(self):
@@ -18,15 +18,15 @@ class Perceptron:
         data = eval(input('Transmettez vos données: '))
         self.data = np.array(data) #data est une liste des couples(entree, sortie attendue)
     
-    def z(self, n, theta): #zn = w*xn+b
+    def z(self, Xi, theta): #zn = w*xn+b
         """
         Fonction calculant la combinaison linéaire des données du perceptron avec les paramètres theta
         du perceptron jusqu'au rang n
     
         Parameters
         ----------
-        n : int
-            le numéro de la composante de z qu'on calcule
+        Xi : list
+            le vecteur entrée de la base de donnée
         theta : array
             vecteur des paramètres du perceptron de dimension n+1 contenant les poids
             et le biais (w1, ..., wn, b).
@@ -38,7 +38,7 @@ class Perceptron:
         """
         w = theta[:-1]
         b = theta[-1]
-        xn = np.array(self.data[n][0])
+        xn = np.array(Xi)
         return np.dot(w, xn) + b
     
     def r(self, theta):
@@ -58,8 +58,8 @@ class Perceptron:
         p = len(self.data)
         resultat = 0
         for i in range(p):
-            somme = self.z(i, theta)
-            y_barre = self.fonction(somme)
+            z = self.z(i, theta)
+            y_barre = self.fonction(z)
             y = self.data[i][1]
             resultat += (y_barre-y)**2
         return 1/(2*p) * resultat
@@ -79,20 +79,22 @@ class Perceptron:
         array
             vecteur des paramètres optimisés theta minimisant approximativement R(theta).
         """
-        theta = np.array(theta0)
-        epsilon = 10**(-4)
-        eta = 10**(-2)
-        n = 1000
-        test = self.gradient( theta)
-        while n>0 and np.linalg.norm(test)>epsilon:
-            n -=1
-            theta = theta-eta*test
-            test = self.gradient(theta)
+        theta = np.array(theta0, dtype=float)                                  #éviter les effets de bord
+        epsilon = 1e-4
+        eta = 1e-2
+        n_max = 1000
+
+        for _ in range(n_max):
+            grad = self.gradient(theta)
+            if np.linalg.norm(grad) <= epsilon:
+                break
+            theta = theta - eta * grad
+
         return theta
     
-    def gradient(self, vecteur):
+    def gradient(self, theta ,n0):       #peut etre ajouté indice
         """
-        Fonction calculant le gradient de la fonction associé au perceptron <self> en un point <vecteur>
+        Fonction calculant le gradient de la fonction coût associé au perceptron 
 
         Parameters
         ----------
@@ -104,6 +106,7 @@ class Perceptron:
         array
             de la forme np.array([float,])
         """
+        """
         h=10**(-6)
         tempo=np.array([float(i) for i in vecteur])
         vect=[0.0 for i in vecteur]
@@ -111,7 +114,24 @@ class Perceptron:
             tempo[i]=tempo[i]+h
             vect[i]=(self.r(tempo)-self.r(vecteur))/h
             tempo=np.array([float(i) for i in vecteur])
-        return np.array(vect)
+        
+        """
+        h=10**(-6)
+        
+        
+        longeur_data=len(self.data)
+        longeur_theta=len(theta)                                               #nb de paramètres
+        grad=np.array([0.0 for i in range(longeur_theta)] )
+        for i in self.data:
+            z=self.z(theta,i[0])                                               #vecteur=les theta , ajoute indice à z(fonction) 
+            derive_z=(self.r(z+h)-self.r(z))/h
+            for j in range(longeur_theta):
+                if j!=longeur_theta-1:
+                    grad[j]+=derive_z*(self.fonction(z)-i[1])*i[0][j]
+                elif j==longeur_theta:
+                    grad[j]+=derive_z*(self.fonction(z)-i[1])
+        grad=grad/(2*(longeur_data-1))
+        return np.array(grad)
     
 
 def f1(vecteur):
@@ -147,7 +167,7 @@ print(p.gradient((1,2,3)))
 p6 = Perceptron(f6)
 p=Perceptron(f6)
 print(p.gradient_a_pas_constant((1,1,1,1)))
-print(p.gradient(((0,-1,2,1)))
+print(p.gradient(((0,-1,2,1))))
 
 p7 = Perceptron(f7)
 p=Perceptron(f7)
