@@ -92,7 +92,7 @@ class Perceptron:
 
         return theta
     
-    def gradient(self, theta ,n0):       #peut etre ajouté indice
+    def gradient(self, theta):       
         """
         Fonction calculant le gradient de la fonction coût associé au perceptron 
 
