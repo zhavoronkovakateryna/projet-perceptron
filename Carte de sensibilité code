@@ -1,0 +1,324 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Jan 21 15:47:00 2026
+
+@author: mouldamezia
+"""
+
+# -*- coding: utf-8 -*-
+#################################### Import ####################################
+
+#################################### Main ######################################
+import numpy as np
+import matplotlib.pyplot as plt
+class Perceptron:
+    def __init__(self, fonction=lambda x: x, data=[]):
+        self.data = np.array(data)
+        self.fonction = fonction
+        
+    def data_entry(self):
+        """
+        Fonction demandant et affecte le  array au perceptron <self>
+
+        Returns
+        -------
+        None.
+        """
+        data = eval(input('Transmettez vos données: '))
+        self.data = np.array(data) #data est une liste des couples(entree, sortie attendue)
+    
+    def z(self, Xi, theta): #zn = w*xn+b
+        """
+        Fonction calculant la combinaison linéaire des données du perceptron avec les paramètres theta
+        du perceptron jusqu'au rang n
+    
+        Parameters
+        ----------
+        Xi : list
+            le vecteur entrée de la base de donnée
+        theta : array
+            vecteur des paramètres du perceptron de dimension n+1 contenant les poids
+            et le biais (w1, ..., wn, b).
+    
+        Returns
+        -------
+        float
+            valeur réelle correspondant à zn = w·xn + b.
+        """
+        w = theta[:-1]
+        b = theta[-1]
+        xn = np.array(Xi)
+        return np.dot(w, xn) + b
+    
+    def r(self, theta):
+        """
+        Fonction de coût du perceptron
+
+        Parameters
+        ----------
+        theta : array
+            de la forme np.array([float,])
+
+        Returns
+        -------
+        float
+            coût.
+        """
+        p = len(self.data)
+        resultat = 0
+        for i in range(p):
+            z = self.z(i, theta)
+            y_barre = self.fonction(z)
+            y = self.data[i][1]
+            resultat += (y_barre-y)**2
+        return 1/(2*p) * resultat
+    
+    def gradient_a_pas_constant(self, theta0):
+        """
+        Fonction réalisant la minimisation de la fonction de coût R(theta) associée
+        au perceptron par la méthode de descente de gradient à pas constant
+    
+        Parameters
+        ----------
+        theta0 : array
+            vecteur initial des paramètres du perceptron (poids et biais).
+    
+        Returns
+        -------
+        array
+            vecteur des paramètres optimisés theta minimisant approximativement R(theta).
+        """
+        theta = np.array(theta0, dtype=float)                                  #éviter les effets de bord
+        epsilon = 1e-4
+        eta = 1e-2
+        n_max = 1000
+
+        for _ in range(n_max):
+            grad = self.gradient(theta)
+            if np.linalg.norm(grad) <= epsilon:
+                break
+            theta = theta - eta * grad
+
+        return theta
+    
+    def gradient(self, theta):       #peut etre ajouté indice
+        """
+        Fonction calculant le gradient de la fonction coût associé au perceptron 
+
+        Parameters
+        ----------
+        vecteur : array
+            de la forme np.array([float,])
+
+        Returns
+        -------
+        array
+            de la forme np.array([float,])
+        """
+        """
+        h=10**(-6)
+        tempo=np.array([float(i) for i in vecteur])
+        vect=[0.0 for i in vecteur]
+        for i in range(len(vecteur)):
+            tempo[i]=tempo[i]+h
+            vect[i]=(self.r(tempo)-self.r(vecteur))/h
+            tempo=np.array([float(i) for i in vecteur])
+        
+        """
+        h=10**(-6)
+        
+        
+        longeur_data=len(self.data)
+        longeur_theta=len(theta)                                               #nb de paramètres
+        grad=np.array([0.0 for i in range(longeur_theta)] )
+        for i in self.data:
+            z=self.z(theta,i[0])                                               #vecteur=les theta , ajoute indice à z(fonction) 
+            derive_z=(self.r(z+h)-self.r(z))/h
+            for j in range(longeur_theta):
+                if j!=longeur_theta-1:
+                    grad[j]+=derive_z*(self.fonction(z)-i[1])*i[0][j]
+                elif j==longeur_theta:
+                    grad[j]+=derive_z*(self.fonction(z)-i[1])
+        grad=grad/(2*(longeur_data-1))
+        return np.array(grad)
+    
+
+def f1(vecteur):
+    vect = (vecteur[0]-1)**2 + (vecteur[1])**2
+    return vect
+
+def gradient1(perceptron, vecteur):
+    return np.array((2*vecteur[0]-2, 2*vecteur[1]))
+  
+#################################### Fonction de test ####################################
+p=Perceptron(f1)
+print(p.gradient_a_pas_constant((2,1)))
+
+print(p.gradient((1,1)))
+
+#  minimum en (1,2,3)
+def f5(vecteur):
+    return (vecteur[0]-1)**2 + (vecteur[1]-2)**2 + (vecteur[2]-3)**2
+
+#  minimum en (0,-1,2,1)
+def f6(vecteur):
+    return (vecteur[0])**2 + (vecteur[1]+1)**2 + (vecteur[2]-2)**2 + (vecteur[3]-1)**2
+
+#  minimum en (1,1,1,1,1)
+def f7(vecteur):
+    return sum((np.array(vecteur)-1)**2)
+
+p5 = Perceptron(f5)
+p=Perceptron(f5)
+print(p.gradient_a_pas_constant((0,0,0)))
+print(p.gradient((1,2,3)))
+
+p6 = Perceptron(f6)
+p=Perceptron(f6)
+print(p.gradient_a_pas_constant((1,1,1,1)))
+print(p.gradient(((0,-1,2,1))))
+
+p7 = Perceptron(f7)
+p=Perceptron(f7)
+print(p.gradient_a_pas_constant((5,0,-2,3,1)))
+print(p.gradient((1,1,1,1,1)))
+
+
+# ============================================================
+# 1) Fonctions R(theta) de Bensaid (theta = [w,b])
+# ============================================================
+
+def R_PolyGlobalMild(theta):
+    w, b = theta[0], theta[1]
+    g = lambda z: z**2 - 1.0
+    return 0.25 * (g(b)**2 + g(w+b)**2)
+
+def gradR_PolyGlobalMild(theta):
+    # gradient analytique exact
+    w, b = theta[0], theta[1]
+    g  = lambda z: z**2 - 1.0
+    gp = lambda z: 2.0*z
+    t = w + b
+    dRw = 0.5 * g(t) * gp(t)
+    dRb = 0.5 * g(b) * gp(b) + 0.5 * g(t) * gp(t)
+    return np.array([dRw, dRb], dtype=float)
+
+
+def R_PolyLocalMild(theta):
+    w, b = theta[0], theta[1]
+    g = lambda z: 2*z**3 - 3*z**2 + 5.0
+    return 0.25 * (g(b)**2 + g(w+b)**2)
+
+def gradR_PolyLocalMild(theta):
+    # gradient analytique exact
+    w, b = theta[0], theta[1]
+    g  = lambda z: 2*z**3 - 3*z**2 + 5.0
+    gp = lambda z: 6*z**2 - 6*z
+    t = w + b
+    dRw = 0.5 * g(t) * gp(t)
+    dRb = 0.5 * g(b) * gp(b) + 0.5 * g(t) * gp(t)
+    return np.array([dRw, dRb], dtype=float)
+
+
+# ============================================================
+# 2) Descente de gradient GD (page 15)
+# ============================================================
+
+def GD(theta0, gradR, eta=0.1, epsilon=1e-5, n_max=2000):
+    """
+    theta_{k+1} = theta_k - eta * gradR(theta_k)
+    stop si ||grad|| <= epsilon
+    """
+    theta = np.array(theta0, dtype=float)
+
+    for k in range(n_max):
+        g = gradR(theta)
+        if np.linalg.norm(g) <= epsilon:
+            return theta, True, k
+        theta = theta - eta*g
+
+        # sécurité
+        if not np.all(np.isfinite(theta)):
+            return theta, False, k
+
+    return theta, False, n_max
+
+
+# ============================================================
+# 3) Test simple : un theta0
+# ============================================================
+
+if __name__ == "__main__":
+    minima = np.array([
+        [-2.0,  1.0],
+        [ 2.0, -1.0],
+        [ 0.0, -1.0],
+        [ 0.0,  1.0],
+    ])
+
+    # Choisis le benchmark ici :
+    R = R_PolyGlobalMild
+    gradR = gradR_PolyGlobalMild
+    name = "PolyGlobalMild"
+
+    # Paramètres comme dans la thèse
+    eta = 0.1
+    epsilon = 1e-5
+    n_max = 2000
+
+    theta0 = np.array([2.5, 1.5])  # (w0,b0)
+    theta_f, ok, it = GD(theta0, gradR, eta=eta, epsilon=epsilon, n_max=n_max)
+
+    print("Benchmark =", name)
+    print("Theta0 =", theta0)
+    print("Theta_final =", theta_f)
+    print("Convergence =", ok, "| itérations =", it)
+    print("R(theta_final) =", R(theta_f))
+    print("||grad|| final =", np.linalg.norm(gradR(theta_f)))
+
+    # Quel minimum atteint ?
+    d = np.linalg.norm(minima - theta_f[None,:], axis=1)
+    idx = np.argmin(d)
+    print("Minimum atteint =", minima[idx], "(index", idx, ")")
+
+    # ============================================================
+    # 4) Carte de sensibilité GD (option)
+    # ============================================================
+
+    make_map = True
+    if make_map:
+        grid_n = 250
+        a, b = -3.0, 3.0
+        W = np.linspace(a, b, grid_n)
+        B = np.linspace(a, b, grid_n)
+
+        labels = -1*np.ones((grid_n, grid_n), dtype=int)
+
+        def classify(theta_final):
+            dd = np.linalg.norm(minima - theta_final[None,:], axis=1)
+            return int(np.argmin(dd))
+
+        for i, w0 in enumerate(W):
+            for j, b0 in enumerate(B):
+                th0 = np.array([w0, b0], dtype=float)
+                thf, ok, _ = GD(th0, gradR, eta=eta, epsilon=epsilon, n_max=n_max)
+                if ok:
+                    labels[j, i] = classify(thf)
+                else:
+                    labels[j, i] = -1
+
+        # affichage
+        plt.figure(figsize=(7,6))
+        cmap = plt.cm.get_cmap("tab10", len(minima)+1)
+        img = labels.copy()
+        img[img == -1] = len(minima)   # dernière couleur = non convergence
+
+        plt.imshow(img, origin="lower", extent=[a,b,a,b],
+                   interpolation="nearest", aspect="equal", cmap=cmap)
+        plt.scatter(minima[:,0], minima[:,1], marker="x", s=100)
+        plt.xlabel("w")
+        plt.ylabel("b")
+        plt.title(f"Carte de sensibilité (GD) - {name}")
+        plt.tight_layout()
+        plt.show()
