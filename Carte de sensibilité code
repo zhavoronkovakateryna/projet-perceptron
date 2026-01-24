@@ -1,17 +1,8 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Jan 21 15:47:00 2026
-
-@author: mouldamezia
-"""
-
 # -*- coding: utf-8 -*-
 #################################### Import ####################################
-
-#################################### Main ######################################
 import numpy as np
 import matplotlib.pyplot as plt
+#################################### Main ######################################
 class Perceptron:
     def __init__(self, fonction=lambda x: x, data=[]):
         self.data = np.array(data)
@@ -26,12 +17,12 @@ class Perceptron:
         None.
         """
         data = eval(input('Transmettez vos données: '))
-        self.data = np.array(data) #data est une liste des couples(entree, sortie attendue)
+        self.data = np.array(data)                                             #data est une liste des couples(entree, sortie attendue)
     
-    def z(self, Xi, theta): #zn = w*xn+b
+    def z(self, Xi, theta):                                                    #z = sum(xi*wi)+b
         """
         Fonction calculant la combinaison linéaire des données du perceptron avec les paramètres theta
-        du perceptron jusqu'au rang n
+        du perceptron 
     
         Parameters
         ----------
@@ -44,7 +35,7 @@ class Perceptron:
         Returns
         -------
         float
-            valeur réelle correspondant à zn = w·xn + b.
+            valeur réelle correspondant à z = sum(xi*wi)+b.
         """
         w = theta[:-1]
         b = theta[-1]
@@ -102,13 +93,13 @@ class Perceptron:
 
         return theta
     
-    def gradient(self, theta):       #peut etre ajouté indice
+    def gradient(self, theta):       
         """
         Fonction calculant le gradient de la fonction coût associé au perceptron 
 
         Parameters
         ----------
-        vecteur : array
+        theta : array
             de la forme np.array([float,])
 
         Returns
@@ -116,42 +107,33 @@ class Perceptron:
         array
             de la forme np.array([float,])
         """
-        """
-        h=10**(-6)
-        tempo=np.array([float(i) for i in vecteur])
-        vect=[0.0 for i in vecteur]
-        for i in range(len(vecteur)):
-            tempo[i]=tempo[i]+h
-            vect[i]=(self.r(tempo)-self.r(vecteur))/h
-            tempo=np.array([float(i) for i in vecteur])
-        
-        """
-        h=10**(-6)
-        
-        
+        h=1e-6
         longeur_data=len(self.data)
         longeur_theta=len(theta)                                               #nb de paramètres
         grad=np.array([0.0 for i in range(longeur_theta)] )
+        
         for i in self.data:
-            z=self.z(theta,i[0])                                               #vecteur=les theta , ajoute indice à z(fonction) 
+            z=self.z(theta,i[0])                                               #i[0] les entrées de data
             derive_z=(self.r(z+h)-self.r(z))/h
             for j in range(longeur_theta):
                 if j!=longeur_theta-1:
                     grad[j]+=derive_z*(self.fonction(z)-i[1])*i[0][j]
                 elif j==longeur_theta:
                     grad[j]+=derive_z*(self.fonction(z)-i[1])
-        grad=grad/(2*(longeur_data-1))
+                    
+        grad=grad/(2*longeur_data)
         return np.array(grad)
     
-
+  
+#################################### Fonction de test ####################################
+#  minimum en (1,0)
 def f1(vecteur):
     vect = (vecteur[0]-1)**2 + (vecteur[1])**2
     return vect
 
 def gradient1(perceptron, vecteur):
     return np.array((2*vecteur[0]-2, 2*vecteur[1]))
-  
-#################################### Fonction de test ####################################
+
 p=Perceptron(f1)
 print(p.gradient_a_pas_constant((2,1)))
 
@@ -222,7 +204,7 @@ def gradR_PolyLocalMild(theta):
 
 
 # ============================================================
-# 2) Descente de gradient GD (page 15)
+# 2) Descente de gradient GD 
 # ============================================================
 
 def GD(theta0, gradR, eta=0.1, epsilon=1e-5, n_max=2000):
@@ -254,8 +236,7 @@ if __name__ == "__main__":
         [-2.0,  1.0],
         [ 2.0, -1.0],
         [ 0.0, -1.0],
-        [ 0.0,  1.0],
-    ])
+        [ 0.0,  1.0],])
 
     # Choisis le benchmark ici :
     R = R_PolyGlobalMild
