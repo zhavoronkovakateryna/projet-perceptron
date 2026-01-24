@@ -1,0 +1,89 @@
+# -*- coding: utf-8 -*-
+#################################### Import ####################################
+import numpy as np
+import matplotlib.pyplot as plt
+#################################### Main ######################################
+class MLP:
+    def __init__(self, position, fonction=lambda x: x, theta=[], gradient=0, data=[])->None:
+        """
+        Fonction d'initialisation d'un neurones du réseau MLP
+
+        Parameters
+        ----------
+        position : list
+            de la forme [(couche, n° dans la couche),..].
+        fonction : fonction, fonction d'activation du neurone
+            The default is lambda x: x.
+        theta : list, les poids et le biais associé à ce neurone
+            The default is [].
+        gradient : float, formule du calcul du gradient du neurone par rapport à ceux de la couche précedentes
+            The default is 0.
+        data : list, optional
+            The default is [].
+
+        Returns
+        -------
+        None.
+        """
+        self.position=position
+        self.gradient=gradient
+        self.theta=theta
+        self.data = np.array(data)
+        self.fonction = fonction
+        
+    def __repr__(self):
+        return f"|position : {self.position[0]},{self.position[1]} __ paramètre : {self.theta}|"
+
+    def data_entry(self)->None:
+        """
+        Fonction demandant et affecte le array au perceptron <self>
+
+        Returns
+        -------
+        None.
+        """
+        data = eval(input('Transmettez vos données: '))
+        self.data = np.array(data)                                             #data est une liste des couples(entree, sortie attendue)
+        
+    
+    
+
+
+
+
+
+def créer_mlp(nb_neurone_couche, fonction_couche, theta_neurone_couche)->dict:
+    """
+    Créer un réseau MLP de <len(nb_neurone_couche)> couches, avec <nb_neurone_couche[i]> neurones 
+    à la couche i muni de la fonction d'activation <fonction_couche[i]>
+    
+    Parameters
+    ----------
+    nb_neurone_couche : list
+        de la forme [nb_neurone_couche_1,nb_neurone_couche_2,..].
+    fonction_couche : list
+        de la forme [fonction_couche_1,fonction_couche_2,..].
+    theta_neurone_couche : list
+        de la forme [[theta_11,theta,12,..], [theta_21,theta,22,..], ..].
+
+    Returns
+    -------
+    dict
+            Réseau MLP.
+    """
+    reseaux={}
+    for i in range(len(nb_neurone_couche)):
+        for j in range(nb_neurone_couche[i]):
+            nom="N_"+f"{i+1}{j+1}"
+            reseaux[nom]=MLP((i+1,j+1), fonction_couche[i], theta_neurone_couche[i][j])          #peut être changer la façon d'attribuer theta
+
+    return reseaux
+
+#################################### Fonction de test ####################################
+
+
+
+
+
+
+
