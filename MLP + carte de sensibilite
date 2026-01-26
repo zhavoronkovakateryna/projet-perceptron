@@ -1,0 +1,632 @@
+# -*- coding: utf-8 -*-
+#################################### Import ####################################
+import numpy as np
+import matplotlib.pyplot as plt
+
+#################################### Main ######################################
+class MLP:
+    def __init__(self, position, fonction=lambda x: x, theta=[], gradient=0, data=[])->None:
+        """
+        Fonction d'initialisation d'un neurones du réseau MLP
+        Parameters
+        ----------
+        position : list
+            de la forme [(couche, n° dans la couche),..].
+        fonction : fonction, fonction d'activation du neurone
+            The default is lambda x: x.
+        theta : list, les poids et le biais associé à ce neurone
+            The default is [].
+        gradient : float, formule du calcul du gradient du neurone par rapport à ceux de la couche précedentes
+            The default is 0.
+        data : list, optional
+            The default is [].
+        Returns
+        -------
+        None.
+        """
+        self.position = position
+        self.gradient = gradient
+        self.theta = np.array(theta) if len(theta)>0 else np.array([])
+        self.data = np.array(data)
+        self.fonction = fonction
+        self.activation = 0  # Stocke l'activation du neurone
+        self.s = 0  # Stocke s (avant activation)
+        
+    def __repr__(self):
+        return f"|position : {self.position[0]},{self.position[1]} __ paramètre : {self.theta}|"
+    
+    def data_entry(self)->None:
+        """
+        Fonction demandant et affecte le array au perceptron <self>
+        Returns
+        -------
+        None.
+        """
+        data = eval(input('Transmettez vos données: '))
+        self.data = np.array(data)
+    
+    def calculer_sortie(self, entrees):
+        """
+        Calcule la sortie du neurone
+        s = sum(theta_i * entree_i) + biais
+        activation = fonction(s)
+        
+        Parameters
+        ----------
+        entrees : np.array
+            Les activations de la couche précédente
+            
+        Returns
+        -------
+        float : l'activation du neurone
+        """
+        # theta[:-1] contient les poids, theta[-1] contient le biais
+        self.s = np.dot(self.theta[:-1], entrees) + self.theta[-1]
+        self.activation = self.fonction(self.s)
+        return self.activation
+
+
+def créer_mlp(nb_neurone_couche, fonction_couche, theta_neurone_couche)->dict:
+    """
+    Créer un réseau MLP de <len(nb_neurone_couche)> couches, avec <nb_neurone_couche[i]> neurones 
+    à la couche i muni de la fonction d'activation <fonction_couche[i]>
+    
+    Parameters
+    ----------
+    nb_neurone_couche : list
+        de la forme [nb_neurone_couche_1,nb_neurone_couche_2,..].
+    fonction_couche : list
+        de la forme [fonction_couche_1,fonction_couche_2,..].
+    theta_neurone_couche : list
+        de la forme [[theta_11,theta,12,..], [theta_21,theta,22,..], ..].
+    Returns
+    -------
+    dict
+            Réseau MLP.
+    """
+    reseaux = {}
+    for i in range(len(nb_neurone_couche)):
+        for j in range(nb_neurone_couche[i]):
+            nom = "N_" + f"{i+1}{j+1}"
+            reseaux[nom] = MLP((i+1, j+1), fonction_couche[i], theta_neurone_couche[i][j])
+    return reseaux
+
+
+def initialiser_poids(nb_neurone_couche):
+    """
+    Initialise aléatoirement les poids pour tout le réseau
+    
+    Parameters
+    ----------
+    nb_neurone_couche : list
+        [nb_entrees, nb_cache1, ..., nb_sortie]
+        
+    Returns
+    -------
+    list : theta pour toutes les couches
+    """
+    theta_couches = []
+    for i in range(len(nb_neurone_couche)):
+        theta_couche = []
+        for j in range(nb_neurone_couche[i]):
+            if i == 0:
+                # Couche d'entrée : pas de poids
+                theta_couche.append([])
+            else:
+                # nb_entrees + 1 pour le biais
+                nb_entrees = nb_neurone_couche[i-1]
+                theta = np.random.randn(nb_entrees + 1) * 0.5
+                theta_couche.append(theta)
+        theta_couches.append(theta_couche)
+    return theta_couches
+
+
+def propagation_avant(reseaux, entree, nb_neurone_couche):
+    """
+    Effectue la propagation avant dans le réseau
+    
+    Parameters
+    ----------
+    reseaux : dict
+        Le réseau MLP
+    entree : list/np.array
+        Les valeurs d'entrée
+    nb_neurone_couche : list
+        Architecture du réseau
+        
+    Returns
+    -------
+    None (met à jour les activations dans le réseau)
+    """
+    # Initialiser la couche d'entrée
+    for j in range(nb_neurone_couche[0]):
+        nom = f"N_1{j+1}"
+        reseaux[nom].activation = entree[j]
+    
+    # Propager à travers les couches
+    for i in range(1, len(nb_neurone_couche)):
+        # Récupérer les activations de la couche précédente
+        activations_prec = []
+        for j in range(nb_neurone_couche[i-1]):
+            nom = f"N_{i}{j+1}"
+            activations_prec.append(reseaux[nom].activation)
+        activations_prec = np.array(activations_prec)
+        
+        # Calculer les activations de la couche actuelle
+        for j in range(nb_neurone_couche[i]):
+            nom = f"N_{i+1}{j+1}"
+            reseaux[nom].calculer_sortie(activations_prec)
+
+
+def calculer_gradient_sortie(reseaux, y_attendu, nb_neurone_couche, derivee_fonction):
+    """
+    Calcule les gradients pour la couche de sortie
+    delta = (y_pred - y_attendu) * g'(s)
+    
+    Parameters
+    ----------
+    reseaux : dict
+        Le réseau MLP
+    y_attendu : list/np.array
+        Sortie attendue
+    nb_neurone_couche : list
+        Architecture
+    derivee_fonction : function
+        Dérivée de la fonction d'activation
+    """
+    couche_sortie = len(nb_neurone_couche)
+    for j in range(nb_neurone_couche[-1]):
+        nom = f"N_{couche_sortie}{j+1}"
+        neurone = reseaux[nom]
+        neurone.gradient = (neurone.activation - y_attendu[j]) * derivee_fonction(neurone.s)
+
+
+def retropropagation_gradient(reseaux, nb_neurone_couche, derivee_fonction):
+    """
+    Rétropropage les gradients vers les couches cachées
+    delta_i = sum(delta_j * w_ji) * g'(s_i)
+    
+    Parameters
+    ----------
+    reseaux : dict
+        Le réseau MLP
+    nb_neurone_couche : list
+        Architecture
+    derivee_fonction : function
+        Dérivée de la fonction d'activation
+    """
+    # Parcourir les couches de l'avant-dernière vers la première cachée
+    for i in range(len(nb_neurone_couche) - 2, 0, -1):
+        for j in range(nb_neurone_couche[i]):
+            nom = f"N_{i+1}{j+1}"
+            neurone = reseaux[nom]
+            
+            # Somme des gradients pondérés de la couche suivante
+            somme = 0
+            for k in range(nb_neurone_couche[i+1]):
+                nom_suivant = f"N_{i+2}{k+1}"
+                neurone_suivant = reseaux[nom_suivant]
+                # theta[j] correspond au poids de connexion j
+                somme += neurone_suivant.gradient * neurone_suivant.theta[j]
+            
+            neurone.gradient = somme * derivee_fonction(neurone.s)
+
+
+def mise_a_jour_poids(reseaux, nb_neurone_couche, eta):
+    """
+    Met à jour les poids selon la règle de gradient
+    theta = theta - eta * gradient * activation_precedente
+    
+    Parameters
+    ----------
+    reseaux : dict
+        Le réseau MLP
+    nb_neurone_couche : list
+        Architecture
+    eta : float
+        Taux d'apprentissage
+    """
+    for i in range(1, len(nb_neurone_couche)):
+        # Récupérer activations de la couche précédente
+        activations_prec = []
+        for j in range(nb_neurone_couche[i-1]):
+            nom = f"N_{i}{j+1}"
+            activations_prec.append(reseaux[nom].activation)
+        activations_prec = np.array(activations_prec)
+        
+        # Mettre à jour les poids de la couche actuelle
+        for j in range(nb_neurone_couche[i]):
+            nom = f"N_{i+1}{j+1}"
+            neurone = reseaux[nom]
+            
+            # Mise à jour des poids
+            for k in range(len(activations_prec)):
+                neurone.theta[k] -= eta * neurone.gradient * activations_prec[k]
+            
+            # Mise à jour du biais
+            neurone.theta[-1] -= eta * neurone.gradient
+
+
+def entrainer(reseaux, donnees, nb_neurone_couche, derivee_fonction, eta, nb_epoques):
+    """
+    Entraîne le réseau sur les données
+    
+    Parameters
+    ----------
+    reseaux : dict
+        Le réseau MLP
+    donnees : list
+        Liste de tuples (entree, sortie_attendue)
+    nb_neurone_couche : list
+        Architecture
+    derivee_fonction : function
+        Dérivée de la fonction d'activation
+    eta : float
+        Taux d'apprentissage
+    nb_epoques : int
+        Nombre d'époques
+    """
+    erreurs = []
+    
+    for epoque in range(nb_epoques):
+        erreur_totale = 0
+        
+        for entree, sortie_attendue in donnees:
+            # Propagation avant
+            propagation_avant(reseaux, entree, nb_neurone_couche)
+            
+            # Calcul de l'erreur
+            for j in range(nb_neurone_couche[-1]):
+                nom = f"N_{len(nb_neurone_couche)}{j+1}"
+                pred = reseaux[nom].activation
+                erreur_totale += (pred - sortie_attendue[j])**2
+            
+            # Rétropropagation
+            calculer_gradient_sortie(reseaux, sortie_attendue, nb_neurone_couche, derivee_fonction)
+            retropropagation_gradient(reseaux, nb_neurone_couche, derivee_fonction)
+            mise_a_jour_poids(reseaux, nb_neurone_couche, eta)
+        
+        erreurs.append(erreur_totale / len(donnees))
+        
+        if epoque % 100 == 0:
+            print(f"Epoque {epoque}: Erreur = {erreurs[-1]:.6f}")
+    
+    return erreurs
+
+
+def prediction(reseaux, entree, nb_neurone_couche):
+    """
+    Fait une prédiction avec le réseau entraîné
+    
+    Parameters
+    ----------
+    reseaux : dict
+        Le réseau MLP
+    entree : list/np.array
+        Entrée
+    nb_neurone_couche : list
+        Architecture
+        
+    Returns
+    -------
+    list : Les activations de la couche de sortie
+    """
+    propagation_avant(reseaux, entree, nb_neurone_couche)
+    
+    sortie = []
+    for j in range(nb_neurone_couche[-1]):
+        nom = f"N_{len(nb_neurone_couche)}{j+1}"
+        sortie.append(reseaux[nom].activation)
+    
+    return sortie
+
+
+def carte_sensibilite(reseaux, nb_neurone_couche, donnees, resolution=100):
+    """
+    Crée une carte de sensibilité montrant les régions de décision du réseau
+    
+    Parameters
+    ----------
+    reseaux : dict
+        Le réseau MLP entraîné
+    nb_neurone_couche : list
+        Architecture du réseau
+    donnees : list
+        Données d'entraînement (pour l'affichage)
+    resolution : int
+        Nombre de points par dimension
+    """
+    # Créer une grille de points
+    x1 = np.linspace(-0.5, 1.5, resolution)
+    x2 = np.linspace(-0.5, 1.5, resolution)
+    X1, X2 = np.meshgrid(x1, x2)
+    
+    # Calculer la prédiction pour chaque point
+    Z = np.zeros_like(X1)
+    for i in range(resolution):
+        for j in range(resolution):
+            entree = [X1[i, j], X2[i, j]]
+            pred = prediction(reseaux, entree, nb_neurone_couche)
+            Z[i, j] = pred[0]
+    
+    # Afficher la carte de chaleur
+    plt.contourf(X1, X2, Z, levels=20, cmap='RdYlBu_r', alpha=0.8)
+    plt.colorbar(label='Sortie du réseau')
+    
+    # Ajouter les points d'entraînement
+    for entree, sortie in donnees:
+        couleur = 'red' if sortie[0] == 0 else 'blue'
+        marqueur = 'o' if sortie[0] == 0 else 's'
+        plt.scatter(entree[0], entree[1], c=couleur, marker=marqueur, 
+                   s=200, edgecolors='black', linewidths=2, zorder=5)
+    
+    # Ajouter une ligne de séparation à 0.5
+    plt.contour(X1, X2, Z, levels=[0.5], colors='black', linewidths=2)
+    
+    plt.xlabel('x1')
+    plt.ylabel('x2')
+    plt.title('Carte de sensibilité du réseau MLP')
+    plt.xlim(-0.5, 1.5)
+    plt.ylim(-0.5, 1.5)
+    plt.grid(True, alpha=0.3)
+
+
+def carte_sensibilite_initialisation(nb_neurone_couche, fonction_couche, derivee_fonction, 
+                                     donnees, eta, nb_epoques, grid_n=50, a=-2.0, b=2.0):
+    """
+    Carte de sensibilité montrant vers quel minimum converge le réseau
+    selon l'initialisation des poids du premier neurone caché
+    
+    Parameters
+    ----------
+    nb_neurone_couche : list
+        Architecture du réseau
+    fonction_couche : list
+        Fonctions d'activation
+    derivee_fonction : function
+        Dérivée de la fonction d'activation
+    donnees : list
+        Données d'entraînement
+    eta : float
+        Taux d'apprentissage
+    nb_epoques : int
+        Nombre d'époques d'entraînement
+    grid_n : int
+        Résolution de la grille
+    a, b : float
+        Limites de la grille
+    """
+    print("\n" + "=" * 60)
+    print("CREATION DE LA CARTE DE SENSIBILITE")
+    print("(Cela peut prendre quelques minutes...)")
+    print("=" * 60)
+    
+    # Grille pour w0 et b0 du premier neurone caché
+    W = np.linspace(a, b, grid_n)
+    B = np.linspace(a, b, grid_n)
+    labels = -1 * np.ones((grid_n, grid_n), dtype=int)
+    
+    # Stocker quelques configurations finales pour identifier les minima
+    configurations_finales = []
+    
+    total = grid_n * grid_n
+    compteur = 0
+    
+    for i, w0 in enumerate(W):
+        for j, b0 in enumerate(B):
+            compteur += 1
+            if compteur % 500 == 0:
+                print(f"Progression: {compteur}/{total} ({100*compteur/total:.1f}%)")
+            
+            # Initialiser les poids avec w0, b0 pour le premier neurone caché
+            theta_neurone_couche = initialiser_poids(nb_neurone_couche)
+            
+            # Modifier le premier neurone caché avec w0 et b0
+            if len(theta_neurone_couche[1]) > 0:  # S'il y a une couche cachée
+                # Premier neurone caché: [w0, w1, b0]
+                theta_neurone_couche[1][0] = np.array([w0, 0.5, b0])
+            
+            # Créer et entraîner le réseau
+            reseaux_temp = créer_mlp(nb_neurone_couche, fonction_couche, theta_neurone_couche)
+            
+            try:
+                erreurs_temp = entrainer(reseaux_temp, donnees, nb_neurone_couche, 
+                                        derivee_fonction, eta, nb_epoques, afficher=False)
+                
+                # Vérifier la convergence
+                if erreurs_temp[-1] < 0.1:  # Convergé
+                    # Extraire la configuration finale des poids
+                    config = []
+                    for nom in sorted(reseaux_temp.keys()):
+                        config.extend(reseaux_temp[nom].theta.tolist())
+                    
+                    # Classer selon la configuration finale
+                    label = classifier_configuration(config, configurations_finales)
+                    labels[j, i] = label
+                else:
+                    labels[j, i] = -1  # Non convergé
+                    
+            except:
+                labels[j, i] = -1  # Erreur
+    
+    print("Calcul terminé!")
+    
+    # Affichage
+    plt.figure(figsize=(8, 7))
+    
+    # Nombre de minima différents trouvés
+    nb_minima = len(np.unique(labels[labels >= 0]))
+    cmap = plt.cm.get_cmap("tab10", nb_minima + 1)
+    
+    img = labels.copy()
+    img[img == -1] = nb_minima  # Dernière couleur = non convergence
+    
+    plt.imshow(img, origin="lower", extent=[a, b, a, b],
+               interpolation="nearest", aspect="equal", cmap=cmap)
+    
+    plt.xlabel("w0 (poids du premier neurone caché)")
+    plt.ylabel("b0 (biais du premier neurone caché)")
+    plt.title(f"Carte de sensibilité à l'initialisation\n{nb_minima} minima différents trouvés")
+    plt.colorbar(label="Minimum atteint")
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    
+    return labels
+
+
+def classifier_configuration(config, configurations_finales, seuil=0.5):
+    """
+    Classifie une configuration finale en la comparant aux configurations déjà vues
+    
+    Parameters
+    ----------
+    config : list
+        Configuration actuelle
+    configurations_finales : list
+        Liste des configurations déjà vues
+    seuil : float
+        Distance maximale pour considérer deux configurations comme identiques
+        
+    Returns
+    -------
+    int : Index du minimum (classe)
+    """
+    config_array = np.array(config)
+    
+    for idx, conf_existante in enumerate(configurations_finales):
+        distance = np.linalg.norm(config_array - conf_existante)
+        if distance < seuil:
+            return idx
+    
+    # Nouvelle configuration
+    configurations_finales.append(config_array)
+    return len(configurations_finales) - 1
+
+
+def entrainer(reseaux, donnees, nb_neurone_couche, derivee_fonction, eta, nb_epoques, afficher=True):
+    """
+    Entraîne le réseau sur les données
+    
+    Parameters
+    ----------
+    reseaux : dict
+        Le réseau MLP
+    donnees : list
+        Liste de tuples (entree, sortie_attendue)
+    nb_neurone_couche : list
+        Architecture
+    derivee_fonction : function
+        Dérivée de la fonction d'activation
+    eta : float
+        Taux d'apprentissage
+    nb_epoques : int
+        Nombre d'époques
+    afficher : bool
+        Afficher ou non la progression
+    """
+    erreurs = []
+    
+    for epoque in range(nb_epoques):
+        erreur_totale = 0
+        
+        for entree, sortie_attendue in donnees:
+            # Propagation avant
+            propagation_avant(reseaux, entree, nb_neurone_couche)
+            
+            # Calcul de l'erreur
+            for j in range(nb_neurone_couche[-1]):
+                nom = f"N_{len(nb_neurone_couche)}{j+1}"
+                pred = reseaux[nom].activation
+                erreur_totale += (pred - sortie_attendue[j])**2
+            
+            # Rétropropagation
+            calculer_gradient_sortie(reseaux, sortie_attendue, nb_neurone_couche, derivee_fonction)
+            retropropagation_gradient(reseaux, nb_neurone_couche, derivee_fonction)
+            mise_a_jour_poids(reseaux, nb_neurone_couche, eta)
+        
+        erreurs.append(erreur_totale / len(donnees))
+        
+        if afficher and epoque % 100 == 0:
+            print(f"Epoque {epoque}: Erreur = {erreurs[-1]:.6f}")
+    
+    return erreurs
+
+
+#################################### Fonction de test ####################################
+
+# Fonction sigmoid et sa dérivée
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+def sigmoid_prime(x):
+    s = sigmoid(x)
+    return s * (1 - s)
+
+# Exemple XOR
+print("=" * 60)
+print("TEST DU RESEAU MLP SUR LE PROBLEME XOR")
+print("=" * 60)
+
+# Architecture: 2 entrées, 2 neurones cachés, 1 sortie
+nb_neurone_couche = [2, 2, 1]
+fonction_couche = [lambda x: x, sigmoid, sigmoid]  # Identité pour l'entrée
+
+# Initialiser les poids
+theta_neurone_couche = initialiser_poids(nb_neurone_couche)
+
+# Créer le réseau
+reseaux = créer_mlp(nb_neurone_couche, fonction_couche, theta_neurone_couche)
+
+print(f"\nArchitecture: {nb_neurone_couche}")
+print("Réseau créé avec succès!")
+print(f"Nombre de neurones: {len(reseaux)}")
+
+# Données XOR
+donnees = [
+    ([0, 0], [0]),
+    ([0, 1], [1]),
+    ([1, 0], [1]),
+    ([1, 1], [0])
+]
+
+# Entraînement
+print("\nEntraînement en cours...")
+eta = 0.5
+nb_epoques = 5000
+erreurs = entrainer(reseaux, donnees, nb_neurone_couche, sigmoid_prime, eta, nb_epoques)
+
+# Résultats
+print("\n" + "=" * 60)
+print("RESULTATS")
+print("=" * 60)
+for entree, sortie_attendue in donnees:
+    pred = prediction(reseaux, entree, nb_neurone_couche)
+    print(f"Entree: {entree} -> Attendu: {sortie_attendue[0]:.0f} | Predit: {pred[0]:.4f}")
+
+# Visualisation de l'erreur
+plt.figure(figsize=(12, 5))
+
+plt.subplot(1, 2, 1)
+plt.plot(erreurs)
+plt.xlabel('Epoque')
+plt.ylabel('Erreur MSE')
+plt.title('Evolution de l\'erreur pendant l\'entrainement')
+plt.grid(True)
+
+# Carte de sensibilité des décisions
+plt.subplot(1, 2, 2)
+carte_sensibilite(reseaux, nb_neurone_couche, donnees)
+
+plt.tight_layout()
+plt.show()
+
+# Carte de sensibilité à l'initialisation (optionnel - prend du temps)
+faire_carte_init = input("\nVoulez-vous créer la carte de sensibilité à l'initialisation? (o/n): ")
+if faire_carte_init.lower() == 'o':
+    labels = carte_sensibilite_initialisation(
+        nb_neurone_couche, fonction_couche, sigmoid_prime,
+        donnees, eta=0.5, nb_epoques=1000, grid_n=30, a=-3.0, b=3.0
+    )
+    plt.show()
+
+print("\n" + "=" * 60)
