@@ -1,0 +1,170 @@
+# -*- coding: utf-8 -*-
+"""
+Spyder Editor
+
+This is a temporary script file.
+"""
+# -*- coding: utf-8 -*-
+#################################### Import ####################################
+import numpy as np
+import matplotlib.pyplot as plt
+
+#################################### Main ######################################       
+def créer_mlp(nb_neurone_par_couche, fonction_couche, theta_neurone_couche, delta, data)->dict:
+    """
+    Créer un réseau MLP de <len(nb_neurone_couche)> couches, avec <nb_neurone_couche[i]> neurones 
+    à la couche i muni de la fonction d'activation <fonction_couche[i]>
+    
+    Parameters
+    ----------
+    nb_neurone_couche : list
+        de la forme [nb_neurone_couche_1,nb_neurone_couche_2,..].
+    fonction_couche : list
+        de la forme [fonction_couche_1,fonction_couche_2,..].
+    theta_neurone_couche : list
+        de la forme [[theta_11,theta,12,..], [theta_21,theta,22,..], ..].
+    Returns
+    -------
+    dict
+            Réseau MLP.
+    """
+    reseaux = {}
+    for i in range(len(nb_neurone_par_couche)):
+        for j in range(nb_neurone_par_couche[i]):
+            nom = "N_" + f"{i+1}_{j+1}"                                            #i : n° de la couche, j : n° dans la ième couche
+            reseaux[nom] = {"position" : (i+1, j+1), "fonction" : fonction_couche[i], "theta" : theta_neurone_couche[i][j], delta : 0}     #couche=couche
+            reseaux["data"]=data
+    return reseaux
+    
+def affichage(reseaux):           # plustard
+    return f"|position : {self.position[0]},{self.position[1]} __ paramètre : {self.theta}|"
+
+def data_entry(reseaux)->None:
+    """
+    Fonction demandant et affecte le array au perceptron <self>
+    Returns
+    -------
+    None.
+    """
+    data = eval(input('Transmettez vos données: '))
+    reseaux["data"]= np.array(data)
+    
+def z(reseaux, nom, Xi):
+    """
+    Fonction calculant la combinaison linéaire des données du perceptron avec les paramètres theta
+    du perceptron jusqu'au rang n
+
+    Parameters
+    ----------
+    Xi : list
+        le vecteur entrée de la base de donnée
+    theta : array
+        vecteur des paramètres du perceptron de dimension n+1 contenant les poids
+        et le biais (w1, ..., wn, b).
+
+    Returns
+    -------
+    float
+        valeur réelle correspondant à zn = w·xn + b.
+    """
+    w = reseaux[nom]["theta"][:-1]
+    b = reseaux[nom]["theta"][-1]
+    xn = np.array(Xi)
+    return np.dot(w, xn) + b
+    
+def Z_vect(reseaux, couche, Xi):
+    """
+    Parameters
+    ----------
+    reseaux : dict
+        reseaux de neurones.
+    couche : int
+        DESCRIPTION.
+    Xi : vecteur
+        g(z).
+
+    Returns
+    -------
+    Z : array
+        vecteur Z de la ième <couche>.
+    """
+    Z=np.array([ z(reseaux, nom, Xi) for nom in reseaux.keys() if reseaux[nom]["position"][0]==couche ])
+    return np.array(Z) 
+
+def propa_avant(Z, couche, reseaux):
+    """
+    Parameters
+    ----------
+    Z : array
+        vecteur Z de <couche> .
+    couche : int
+        n° couche.
+    reseaux : dict
+        reseaux neurones
+    Returns
+    -------
+    array
+        g(Z).
+    """
+    return reseaux[f"N_{couche}_1"]["fonction"](Z)
+
+def propa_globale(Z, reseaux, nb_de_couches):
+    """
+    Parameters
+    ----------
+    Z : array
+        DESCRIPTION.
+    reseaux : dict
+        DESCRIPTION.
+    nb_de_couches : int
+        DESCRIPTION.
+
+    Returns
+    -------
+    G : array
+        Grand vecteur de sortie.
+    """
+    for i in range(nb_de_couches):
+        Z=Z_vect(reseaux, i+1, Z)           
+        G=propa_avant(Z, i+1, reseaux)
+        Z=G
+    return np.array(G)
+
+def delta_fin(couche, Z,reseaux):
+    delta=np.array([derivé_sigmoid(Z)])
+    L=sum(propa_globale(reseaux["data"][i][0], couche, reseaux)-reseaux["data"][i][1]  for i in range(len(reseaux["data"])) )*1/len(reseaux["data"])     #data = [ (Xi,Yi), ], Xi=(.,), Yi=(.,)
+    delta=delta*L
+    return np.array(delta)
+    
+def propa_arrière(couche, reseaux):
+    L=[sum(reseaux[f"N_{couche+1}_{j}"]["delta"]*reseaux[f"N_{couche}_{i}"]["theta"][j] for j in range(len(reseaux[f"N_{couche+1}_1"])) ) for i in range(len(reseaux[f"N_{couche}_1"]))]
+    return np.array(L)
+    
+    
+    
+sigmoid= lambda x : 1/(1+np.exp(-x))
+derivé_sigmoid = lambda x : sigmoid(x)*(1-sigmoid(x))    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
