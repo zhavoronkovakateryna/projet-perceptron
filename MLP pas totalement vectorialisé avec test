@@ -31,7 +31,7 @@ def créer_mlp(nb_neurone_par_couche, fonction_couche, derivé_fonction_couche, 
             nom = "N_" + f"{i+1}_{j+1}"
             reseaux[nom] = {
                 "position": (i+1, j+1),
-                "theta" : np.array(theta_neurone_couche[i][j], float),
+                "theta" : np.array(theta_neurone_couche[i][j],dtype=float),
                 "delta" : 0 }
     reseaux["data"] = data
     reseaux["fonction"]=fonction_couche
@@ -281,7 +281,7 @@ def gradient_a_pas_constant(data, reseaux)->None:
     -------
     None
     """
-    theta = np.array([reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"] for couche in range(len(reseaux["couche"])) for emplacement in range(reseaux["couche"][couche]) ])                                 
+    theta = [reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"] for couche in range(len(reseaux["couche"])) for emplacement in range(reseaux["couche"][couche]) ]                                 
     epsilon = 1e-4                                                             #les thetas sont l'ordre suivant : theta du neurone en couche 1 emplacement 1 (1_1),  
     eta = 1e-2                                                                 #theta du neurone en couche 1 emplacement 2 (1_2),...,theta du neurone en couche L emplacement nL (L_nL)
     n_max = 1000
@@ -300,8 +300,30 @@ def gradient_a_pas_constant(data, reseaux)->None:
             n+=nombre_param
     return None
 
-def gradient(data, reseaux)->np.array:                                         #A faire
-    return None
+def gradient(data, reseaux)->list :                                  
+    """
+    Fonction réalisant le gradient de la fonction de coût R(theta) associée
+    au reseaux 
+
+    Parameters
+    ----------
+    data : list de couple
+        Donnée avec lesquels on entraîne le reseaux.
+
+    Returns
+    -------
+    list(np.array)
+        les gradients de tous les neurones du reseaux
+    """
+    derive=reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"][]               #A compléter à l'aide de vidéo, 
+    grad=[np.array(derive*reseaux[f"N_{couche+1}_{emplacement+1}"]["delta"]) for couche in range(len(reseaux["couche"])) 
+          for emplacement in range(reseaux["couche"][couche])]
+    
+    
+    
+    
+    
+    return None#grad
    
     
 sigmoid = lambda x: 1/(1+np.exp(-x))
@@ -347,8 +369,9 @@ b2 = np.array([
     [0.05],
     [-0.1]])
 #################################### fonction de test ####################################
-MLP=créer_mlp([3,2], [sigmoid,sigmoid], [derive_sigmoid,derive_sigmoid], [ [[0.2, -0.3, 0.1],[0.4, 0.1, -0.2],[-0.5, 0.2, 0.05]] , 
-                                                                          [[0.3, -0.4, 0.2, 0.05],[-0.1, 0.5, -0.3, -0.1]] ])
+MLP=créer_mlp([3,2], [sigmoid,sigmoid], [derive_sigmoid,derive_sigmoid], [ np.concatenate((W1, b1), axis=1),   
+                                                                         np.concatenate((W2, b2), axis=1) ])      #concatenate concatène par colonnes (axis=1)
+
 data = [(X[i], Y[i]) for i in range(len(X))]
 data_entry(MLP, data)
 #print(r(MLP,data[0]))
