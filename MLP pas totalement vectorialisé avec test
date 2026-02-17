@@ -49,11 +49,11 @@ def affichage(reseaux):
             print(f'|nom : {i} __ poids/biais : {reseaux[i]["theta"]} _ delta : {reseaux[i]["delta"]}|')
     return None        
 
-def data_entry(reseaux, data)->None:
+def data_entry(data, reseaux)->None:
     """Fonction affectant <data> au réseaux <reseaux>"""
     reseaux["data"] = np.array(data)
     
-def r(reseaux, X_Y):
+def r(X_Y, reseaux):
     """
     Fonction de coût du réseaux pour une data
 
@@ -78,7 +78,7 @@ def r(reseaux, X_Y):
         cout += ((ui-yi_barre)**2)/2
     return cout
 
-def R(reseaux, data):
+def R(data, reseaux):
     """
     Fonction de coût du réseaux pour les datas <data>
 
@@ -94,7 +94,7 @@ def R(reseaux, data):
         coût.
     """
     n=len(data)
-    cout_glo=sum([r(reseaux,X_Y_i) for X_Y_i in data])/n
+    cout_glo=sum([r(X_Y_i,reseaux) for X_Y_i in data])/n
     return cout_glo
         
 def z(reseaux, nom, Xi):
@@ -284,10 +284,13 @@ def gradient_a_pas_constant(data, reseaux)->None:                               
     epsilon = 1e-4                                                             #les thetas sont l'ordre suivant : theta du neurone en couche 1 emplacement 1 (1_1),  
     eta = 1e-2                                                                 #theta du neurone en couche 1 emplacement 2 (1_2),...,theta du neurone en couche L emplacement nL (L_nL)
     n_max = 1000
+    #cout=[0 for _ in range(n_max+1)]                                          #pour l'affichage en matplotlib
     
     for _ in range(n_max):
         attribution=0                                                          #compteur pour réatribuer les poids et biais à chaque neurones
         grad = gradient(data, reseaux)
+        #cout[_]=R(data, reseaux) 
+        
         if np.linalg.norm(grad) <= epsilon:
             #print("sortie")
             break
@@ -301,6 +304,22 @@ def gradient_a_pas_constant(data, reseaux)->None:                               
                 reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"]=theta[attribution:attribution+nombre_param]
                 attribution+=nombre_param
         #affichage(MLP)
+    
+    """
+    cout[-1]=R(data, reseaux)
+    x = np.arange(n_max+1)
+    y = cout
+    plt.figure("Cout")
+    plt.xlim(min(x), max(x))                                                   #zoom pour voir l'évolution du coût
+    plt.ylim(min(y), max(y))
+    plt.plot(x, y)
+    plt.axhline(color ='black')
+    plt.axvline(color ='black')
+    plt.grid() 
+    plt.xlabel('n° itération')
+    plt.ylabel('coût')
+    plt.title('Evolution du cout')
+    plt.show()"""
     return None
 
 def gradient(data, reseaux)->np.array :                                         #marche mais à vectorialiser
@@ -386,7 +405,7 @@ MLP=créer_mlp([3,2], [sigmoid,sigmoid], [derive_sigmoid,derive_sigmoid], [ np.c
                                                                          np.concatenate((W2, b2), axis=1) ])      #concatenate concatène par colonnes (axis=1)
 
 data = [(X[i], Y[i]) for i in range(len(X))]
-data_entry(MLP, data)
+data_entry(data, MLP)
 #print(r(MLP,data[0]))
 #print(R(MLP,data))
 #print(delta_fin([data[0]], MLP))
@@ -412,5 +431,5 @@ for neurones in MLP.keys():
         print(neurones,end=" : ")
         print(MLP[neurones]["delta"])'''
 #test_grad=gradient([data[4]], MLP)
-#gradient_a_pas_constant(data, MLP)
+gradient_a_pas_constant(data, MLP)
 #affichage(MLP)
