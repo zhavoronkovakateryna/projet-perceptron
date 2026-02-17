@@ -230,13 +230,12 @@ def propa_arrière(Z_vect, couche, reseaux):                                    
     """
     #print(Z_vect)
     #print("----Propa arrière----", end=" : ")
-    #propa_globale(Z_vect, reseaux)                                            #à enlever normalement
     delta=[0 for i in range(reseaux["couche"][couche-1])]
     for i in range(reseaux["couche"][couche-1]):
         #print(reseaux["valeur_Z"][couche-1])
         for j in range(reseaux["couche"][couche]):
             delta[i]+=reseaux[f"N_{couche+1}_{j+1}"]["delta"] * reseaux[f"N_{couche+1}_{j+1}"]["theta"][i] * reseaux["dérivé_fonction"][couche-1](reseaux["valeur_Z"][couche-1][i])
-            #print(reseaux[f"N_{couche+1}_{j+1}"]["delta"])                     #reseaux[f"N_{couche+1}_{j+1}"]["theta"][i] = wij ^ (couche)
+            #print(reseaux[f"N_{couche+1}_{j+1}"]["delta"])                    #reseaux[f"N_{couche+1}_{j+1}"]["theta"][i] = wij ^ (couche)
             #print(reseaux[f"N_{couche+1}_{j+1}"]["theta"][i])
             #print(reseaux["valeur_Z"][couche-1][i][j])
     #print(delta)                                    
@@ -245,7 +244,7 @@ def propa_arrière(Z_vect, couche, reseaux):                                    
        reseaux[f"N_{couche}_{num_neurone+1}"]["delta"]=delta[num_neurone]
     return None
 
-def delta_globale(data, reseaux):
+def delta_global(data, reseaux):
     """
     Met à jour tous les deltas du réseaux 
     
@@ -261,13 +260,12 @@ def delta_globale(data, reseaux):
     None.
     """
     n=len(reseaux["couche"])
-    for D in data:
-        delta_fin(D, reseaux) 
-        for i in range(1,n):                                                   #autant de tour qu'il y a de <couche-1> car delta dernière couche est calculé différement
-            propa_arrière(D[0], n-i, reseaux)
+    delta_fin(data, reseaux) 
+    for i in range(1,n):                                                       #autant de tour qu'il y a de <couche-1> car delta dernière couche est calculé différement
+        propa_arrière(data[0], n-i, reseaux)
     return None
 
-def gradient_a_pas_constant(data, reseaux)->None:
+def gradient_a_pas_constant(data, reseaux)->None:                               #marche mais à vectorialiser
     """
     Fonction réalisant la minimisation de la fonction de coût R(theta) associée
     au reseaux par la méthode de descente de gradient à pas constant en les mettant à jour
@@ -281,26 +279,31 @@ def gradient_a_pas_constant(data, reseaux)->None:
     -------
     None
     """
-    theta = [reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"] for couche in range(len(reseaux["couche"])) for emplacement in range(reseaux["couche"][couche]) ]                                 
+    theta = np.array([reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"][wb] for couche in range(len(reseaux["couche"])) 
+                      for emplacement in range(reseaux["couche"][couche]) for wb in range(len(reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"]))] )                                
     epsilon = 1e-4                                                             #les thetas sont l'ordre suivant : theta du neurone en couche 1 emplacement 1 (1_1),  
     eta = 1e-2                                                                 #theta du neurone en couche 1 emplacement 2 (1_2),...,theta du neurone en couche L emplacement nL (L_nL)
     n_max = 1000
-    n=0                                                                        #compteur pour réatribuer les poids et biais à chaque neurones
     
     for _ in range(n_max):
-        grad = gradient(theta, reseaux)
+        attribution=0                                                          #compteur pour réatribuer les poids et biais à chaque neurones
+        grad = gradient(data, reseaux)
         if np.linalg.norm(grad) <= epsilon:
+            #print("sortie")
             break
         theta = theta - eta * grad
-        
-    for couche in range(len(reseaux["couche"])):                               #mise à jour des theta de tous les neurones du réseaux
-        nombre_param=len(reseaux[f"N_{couche+1}_1"]["theta"])
-        for emplacement in range(reseaux["couche"][couche]):
-            reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"]=theta[n:n+nombre_param]
-            n+=nombre_param
+        #print(theta)
+        for couche in range(len(reseaux["couche"])):                           #mise à jour des theta de tous les neurones du réseaux
+            nombre_param=len(reseaux[f"N_{couche+1}_1"]["theta"])
+            for emplacement in range(reseaux["couche"][couche]):
+                #print("theta : ",end="")
+                #print(theta[attribution:attribution+nombre_param])
+                reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"]=theta[attribution:attribution+nombre_param]
+                attribution+=nombre_param
+        #affichage(MLP)
     return None
 
-def gradient(data, reseaux)->list :                                  
+def gradient(data, reseaux)->np.array :                                         #marche mais à vectorialiser
     """
     Fonction réalisant le gradient de la fonction de coût R(theta) associée
     au reseaux 
@@ -312,18 +315,28 @@ def gradient(data, reseaux)->list :
 
     Returns
     -------
-    list(np.array)
-        les gradients de tous les neurones du reseaux
+    np.array
+        les gradients de tous les paramètres du reseaux
     """
-    derive=reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"][]               #A compléter à l'aide de vidéo, 
-    grad=[np.array(derive*reseaux[f"N_{couche+1}_{emplacement+1}"]["delta"]) for couche in range(len(reseaux["couche"])) 
-          for emplacement in range(reseaux["couche"][couche])]
-    
-    
-    
-    
-    
-    return None#grad
+    grad=[0 for couche in range(len(reseaux["couche"])) for emplacement in range(reseaux["couche"][couche]) 
+          for wb in range(len(reseaux[f"N_{couche+1}_1"]["theta"])) ]
+    for D in data:
+        attrib=0
+        delta_global(D, reseaux)
+        for couche in range(len(reseaux["couche"])):
+            if couche==0:
+                entree=D[0]+[1]   
+            else:
+                entree=np.concatenate((reseaux["valeur_fonction"][couche-1], np.array([1])), axis=0)
+            #print(entree)
+            
+            for emplacement in range(reseaux["couche"][couche]):
+                for k in range(len(entree)):
+                    grad[attrib]+=reseaux[f"N_{couche+1}_{emplacement+1}"]["delta"]*np.array(entree)[k]
+                    attrib+=1
+                #print(reseaux[f"N_{couche+1}_{emplacement+1}"]["delta"]*np.array(entree))
+                
+    return np.array(grad)/len(data)
    
     
 sigmoid = lambda x: 1/(1+np.exp(-x))
@@ -398,5 +411,6 @@ for neurones in MLP.keys():
     if neurones[:2]=="N_":
         print(neurones,end=" : ")
         print(MLP[neurones]["delta"])'''
-
-
+#test_grad=gradient([data[4]], MLP)
+#gradient_a_pas_constant(data, MLP)
+#affichage(MLP)
