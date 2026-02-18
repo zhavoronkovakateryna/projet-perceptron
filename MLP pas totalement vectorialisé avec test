@@ -42,7 +42,7 @@ def créer_mlp(nb_neurone_par_couche, fonction_couche, derivé_fonction_couche, 
     return reseaux
 
 def affichage(reseaux):
-    print(f"|Couche : {reseaux['couche']}\n Valeur fonction : {reseaux['valeur_fonction']})\n ValeurZ : {reseaux['valeur_Z']}|")
+    print(f"|Couche : {reseaux['couche']}|")
     print("-"*90)
     for i in reseaux.keys():
         if i[:2]=="N_":
@@ -282,9 +282,9 @@ def gradient_a_pas_constant(data, reseaux)->None:                               
     theta = np.array([reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"][wb] for couche in range(len(reseaux["couche"])) 
                       for emplacement in range(reseaux["couche"][couche]) for wb in range(len(reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"]))] )                                
     epsilon = 1e-4                                                             #les thetas sont l'ordre suivant : theta du neurone en couche 1 emplacement 1 (1_1),  
-    eta = 1e-2                                                                 #theta du neurone en couche 1 emplacement 2 (1_2),...,theta du neurone en couche L emplacement nL (L_nL)
+    eta = 1e-3                                                                 #theta du neurone en couche 1 emplacement 2 (1_2),...,theta du neurone en couche L emplacement nL (L_nL)
     n_max = 1000
-    #cout=[0 for _ in range(n_max+1)]                                          #pour l'affichage en matplotlib
+    #cout=[0 for _ in range(n_max+1)]                                           #pour l'affichage en matplotlib
     
     for _ in range(n_max):
         attribution=0                                                          #compteur pour réatribuer les poids et biais à chaque neurones
@@ -356,13 +356,14 @@ def gradient(data, reseaux)->np.array :                                         
                 #print(reseaux[f"N_{couche+1}_{emplacement+1}"]["delta"]*np.array(entree))
                 
     return np.array(grad)/len(data)
-   
-    
+#################################### Fonction maths ####################################      
 sigmoid = lambda x: 1/(1+np.exp(-x))
 derive_sigmoid = lambda x: sigmoid(x)*(1-sigmoid(x))
+fonction_these = lambda x : x**2-1
+derive_fonction_these = lambda x : 2*x
 #################################### donnée de test ####################################
 # Entrées 
-X = [
+X1 = [
     [0, 0],
     [0, 1],
     [1, 0],
@@ -371,9 +372,8 @@ X = [
     [0.8, 0.2],
     [0.9, 0.9],
     [0.1, 0.1]]
-
 # Sorties avec 2 neurones de sortie
-Y = [
+Y1 = [
     [1, 0],
     [0, 1],
     [0, 1],
@@ -392,7 +392,6 @@ b1 = np.array([
     [0.1],
     [-0.2],
     [0.05]])
-
 # Poids cachée -> sortie (2 sorties, 3 neurones cachés)
 W2 = np.array([
     [0.3, -0.4, 0.2],
@@ -400,15 +399,23 @@ W2 = np.array([
 b2 = np.array([
     [0.05],
     [-0.1]])
-#################################### fonction de test ####################################
-MLP=créer_mlp([3,2], [sigmoid,sigmoid], [derive_sigmoid,derive_sigmoid], [ np.concatenate((W1, b1), axis=1),   
-                                                                         np.concatenate((W2, b2), axis=1) ])      #concatenate concatène par colonnes (axis=1)
 
-data = [(X[i], Y[i]) for i in range(len(X))]
-data_entry(data, MLP)
-#print(r(MLP,data[0]))
-#print(R(MLP,data))
-#print(delta_fin([data[0]], MLP))
+#TEST sur THESE
+# Entrées 
+X_these = [[0], [1]]
+# Sorties avec 2 neurones de sortie
+Y_these = [[0], [0]]
+
+# Poids entrée -> cachée (3 neurones cachés, 2 entrées)
+W_these = np.array([ [0.7] ])
+b_these = np.array([ [-0.5] ])
+#################################### fonction de test ####################################
+#MLP1=créer_mlp([3,2], [sigmoid,sigmoid], [derive_sigmoid,derive_sigmoid], [ np.concatenate((W1, b1), axis=1), np.concatenate((W2, b2), axis=1) ])     
+#data1 = [(X1[i], Y1[i]) for i in range(len(X1))]
+#data_entry(data1, MLP1)
+#print(r(data1[0],MLP1))
+#print(R(data1,MLP1,)
+#print(delta_fin([data1[0]], MLP1))
 '''
 for n in range(len(X)):
     delta_globale([data[n]],MLP)
@@ -430,6 +437,15 @@ for neurones in MLP.keys():
     if neurones[:2]=="N_":
         print(neurones,end=" : ")
         print(MLP[neurones]["delta"])'''
-#test_grad=gradient([data[4]], MLP)
-gradient_a_pas_constant(data, MLP)
-#affichage(MLP)
+#test_grad=gradient([data1[4]], MLP1)
+#gradient_a_pas_constant(data1, MLP1)
+#affichage(MLP1)
+"""
+data_these=[(X_these[i], Y_these[i]) for i in range(len(X_these))]
+MLP_these=créer_mlp([1],[fonction_these],[derive_fonction_these],[np.concatenate((W_these, b_these), axis=1)],data_these)
+gradient_a_pas_constant(data_these, MLP_these)
+affichage(MLP_these)
+print(R(data_these,MLP_these))
+"""
+
+
