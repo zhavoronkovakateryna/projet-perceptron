@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Feb 24 15:28:16 2026
+
+@author: mouldamezia
+"""
+
 # -*- coding: utf-8 -*-
 #################################### Import ####################################
 import numpy as np
@@ -106,7 +114,7 @@ def z(reseaux, nom, Xi):
     xn = np.array(Xi)
     return np.dot(w, xn) + b
 
-def Z_vect(reseaux, couche, Xi):
+def Z_vect(reseaux, couche, Xi):                             #peut etre les trier dans le bon ordre
     """
     Vectorialise tous les zi de la couche <couche> en Z 
 
@@ -125,8 +133,7 @@ def Z_vect(reseaux, couche, Xi):
         tous les zi de la couche <couche>.
     """
     #print(Xi)
-    Z = [z(reseaux, nom, Xi) for nom in reseaux.keys()
-        if nom[:2] == "N_" and reseaux[nom]["position"][0] == couche]
+    Z = [z(reseaux, f"N_{couche}_{i+1}", Xi) for i in range(reseaux["couche"][couche-1]) ]
     return Z
 
 def propa_avant(Z_vect, couche, reseaux):
@@ -181,13 +188,13 @@ def propa_globale(Z_vecteur, reseaux):
     reseaux["valeur_Z"]=Z_glo                                                  #list(list ) contenant la valeur de tous les Z
     return None
 
-def delta_fin(Xi, reseaux):
+def delta_fin(Xi, reseaux): #erreur potentielle
     """
     Calcul le delta^(L) du réseaux <reseaux> pour <Xi> et le met à jour
 
     Parameters
     ----------
-    Xi : list de couple
+    Xi :  couple
         les datas considérées pour le delta de la forme [(X1,Y1), (X2,Y2),].
     reseaux : dict
         reseaux MLP.
@@ -203,7 +210,7 @@ def delta_fin(Xi, reseaux):
     #print(Xi[0][0])
     propa_globale(Xi[0], reseaux)
     X_fin = reseaux["valeur_fonction"][-1]
-    derive=X_fin*(1-X_fin)                           #reseaux["dérivé_fonction"][couche-1](np.array(reseaux["valeur_Z"][-1]))
+    derive=reseaux["dérivé_fonction"][-1](np.array(reseaux["valeur_Z"][-1]))                  #X_fin*(1-X_fin)                           
     #print(X_fin)
     #print(derive)
     delta = (X_fin - np.array(Xi[1], dtype=float)) * derive                    #Formule donnée par le prof pour delta dernière couche
@@ -234,7 +241,7 @@ def propa_arrière(Z_vect, couche, reseaux):                                    
     for i in range(reseaux["couche"][couche-1]):
         #print(reseaux["valeur_Z"][couche-1])
         for j in range(reseaux["couche"][couche]):
-            delta[i]+=reseaux[f"N_{couche+1}_{j+1}"]["delta"] * reseaux[f"N_{couche+1}_{j+1}"]["theta"][i] * reseaux["dérivé_fonction"][couche-1](reseaux["valeur_Z"][couche-1][i])
+            delta[i]+=reseaux[f"N_{couche+1}_{j+1}"]["delta"] * reseaux[f"N_{couche+1}_{j+1}"]["theta"][i] * reseaux["dérivé_fonction"][couche-1](reseaux["valeur_Z"][couche-1][i])   #a optimiser
             #print(reseaux[f"N_{couche+1}_{j+1}"]["delta"])                    #reseaux[f"N_{couche+1}_{j+1}"]["theta"][i] = wij ^ (couche)
             #print(reseaux[f"N_{couche+1}_{j+1}"]["theta"][i])
             #print(reseaux["valeur_Z"][couche-1][i][j])
@@ -282,14 +289,14 @@ def gradient_a_pas_constant(data, reseaux)->None:                               
     theta = np.array([reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"][wb] for couche in range(len(reseaux["couche"])) 
                       for emplacement in range(reseaux["couche"][couche]) for wb in range(len(reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"]))] )                                
     epsilon = 1e-4                                                             #les thetas sont l'ordre suivant : theta du neurone en couche 1 emplacement 1 (1_1),  
-    eta = 1e-3                                                                 #theta du neurone en couche 1 emplacement 2 (1_2),...,theta du neurone en couche L emplacement nL (L_nL)
+    eta = 1e-1                                                                 #theta du neurone en couche 1 emplacement 2 (1_2),...,theta du neurone en couche L emplacement nL (L_nL)
     n_max = 1000
-    #cout=[0 for _ in range(n_max+1)]                                           #pour l'affichage en matplotlib
+    cout=[0 for _ in range(n_max+1)]                                           #pour l'affichage en matplotlib
     
     for _ in range(n_max):
         attribution=0                                                          #compteur pour réatribuer les poids et biais à chaque neurones
         grad = gradient(data, reseaux)
-        #cout[_]=R(data, reseaux) 
+        cout[_]=R(data, reseaux) 
         
         if np.linalg.norm(grad) <= epsilon:
             #print("sortie")
@@ -305,7 +312,7 @@ def gradient_a_pas_constant(data, reseaux)->None:                               
                 attribution+=nombre_param
         #affichage(MLP)
     
-    """
+    
     cout[-1]=R(data, reseaux)
     x = np.arange(n_max+1)
     y = cout
@@ -319,7 +326,7 @@ def gradient_a_pas_constant(data, reseaux)->None:                               
     plt.xlabel('n° itération')
     plt.ylabel('coût')
     plt.title('Evolution du cout')
-    plt.show()"""
+    plt.show()
     return None
 
 def gradient(data, reseaux)->np.array :                                         #marche mais à vectorialiser
@@ -407,16 +414,17 @@ X_these = [[0], [1]]
 Y_these = [[0], [0]]
 
 # Poids entrée -> cachée (3 neurones cachés, 2 entrées)
-W_these = np.array([ [0.7] ])
-b_these = np.array([ [-0.5] ])
+W_these = np.array([ [0.0] ])
+b_these = np.array([ [-0.001] ])
 #################################### fonction de test ####################################
-#MLP1=créer_mlp([3,2], [sigmoid,sigmoid], [derive_sigmoid,derive_sigmoid], [ np.concatenate((W1, b1), axis=1), np.concatenate((W2, b2), axis=1) ])     
-#data1 = [(X1[i], Y1[i]) for i in range(len(X1))]
-#data_entry(data1, MLP1)
-#print(r(data1[0],MLP1))
-#print(R(data1,MLP1,)
-#print(delta_fin([data1[0]], MLP1))
+"""MLP1=créer_mlp([3,2], [sigmoid,sigmoid], [derive_sigmoid,derive_sigmoid], [ np.concatenate((W1, b1), axis=1), np.concatenate((W2, b2), axis=1) ])     
+data1 = [(X1[i], Y1[i]) for i in range(len(X1))]
+data_entry(data1, MLP1)"""
 '''
+print(r(data1[0],MLP1))
+print(R(data1,MLP1,)
+print(delta_fin([data1[0]], MLP1))
+''' '''
 for n in range(len(X)):
     delta_globale([data[n]],MLP)
     #propa_globale(X[n], MLP)
@@ -440,12 +448,9 @@ for neurones in MLP.keys():
 #test_grad=gradient([data1[4]], MLP1)
 #gradient_a_pas_constant(data1, MLP1)
 #affichage(MLP1)
-"""
+
 data_these=[(X_these[i], Y_these[i]) for i in range(len(X_these))]
 MLP_these=créer_mlp([1],[fonction_these],[derive_fonction_these],[np.concatenate((W_these, b_these), axis=1)],data_these)
 gradient_a_pas_constant(data_these, MLP_these)
 affichage(MLP_these)
 print(R(data_these,MLP_these))
-"""
-
-
