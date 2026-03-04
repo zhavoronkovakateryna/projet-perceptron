@@ -289,7 +289,7 @@ def gradient_a_pas_constant(data, reseaux)->None:                               
     theta = np.array([reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"][wb] for couche in range(len(reseaux["couche"])) 
                       for emplacement in range(reseaux["couche"][couche]) for wb in range(len(reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"]))] )                                
     epsilon = 1e-4                                                             #les thetas sont l'ordre suivant : theta du neurone en couche 1 emplacement 1 (1_1),  
-    eta = 1e-1                                                                 #theta du neurone en couche 1 emplacement 2 (1_2),...,theta du neurone en couche L emplacement nL (L_nL)
+    eta = 1e-3                                                                 #theta du neurone en couche 1 emplacement 2 (1_2),...,theta du neurone en couche L emplacement nL (L_nL)
     n_max = 1000
     cout=[0 for _ in range(n_max+1)]                                           #pour l'affichage en matplotlib
     
@@ -312,7 +312,7 @@ def gradient_a_pas_constant(data, reseaux)->None:                               
                 attribution+=nombre_param
         #affichage(MLP)
     
-    
+    #print(cout)
     cout[-1]=R(data, reseaux)
     x = np.arange(n_max+1)
     y = cout
@@ -448,9 +448,55 @@ for neurones in MLP.keys():
 #test_grad=gradient([data1[4]], MLP1)
 #gradient_a_pas_constant(data1, MLP1)
 #affichage(MLP1)
-
+"""
 data_these=[(X_these[i], Y_these[i]) for i in range(len(X_these))]
 MLP_these=créer_mlp([1],[fonction_these],[derive_fonction_these],[np.concatenate((W_these, b_these), axis=1)],data_these)
 gradient_a_pas_constant(data_these, MLP_these)
 affichage(MLP_these)
-print(R(data_these,MLP_these))
+print(R(data_these,MLP_these))"""
+#################################### fonction de validation ####################################
+f1 = lambda x : x**3/3
+f2 = lambda x : x**2-4
+derive_f1 = lambda x : x**2
+derive_f2 = lambda x : 2*x
+W_valid1=np.array([
+    [0.5],
+    [0.15]])
+W_valid2=np.array([
+    [0.2, -0.3],
+    [0.2, 0.2],
+    [-0.04, 0.6]])
+b_valid1=np.array([
+    [0.05],
+    [-0.1]])
+b_valid2=np.array([
+    [-0.55],
+    [-2.2],
+    [-0.4]])
+data_valid=[([0],[0,1,0]), ([1],[1,1,1])]                                      #A choisir (13 variables au total)
+MLP_validation=créer_mlp([2,3], [f1,f2], [derive_f1,derive_f2], [np.concatenate((W_valid1, b_valid1), axis=1), np.concatenate((W_valid2, b_valid2), axis=1)], data_valid)
+gradient_a_pas_constant(data_valid, MLP_validation)
+affichage(MLP_validation)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
