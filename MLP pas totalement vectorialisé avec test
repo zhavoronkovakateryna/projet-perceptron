@@ -1,16 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Tue Feb 24 15:28:16 2026
-
-@author: mouldamezia
-"""
-
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python3
 #################################### Import ####################################
 import numpy as np
 import matplotlib.pyplot as plt
-
+import copy
 #################################### Main ######################################       
 def créer_mlp(nb_neurone_par_couche, fonction_couche, derivé_fonction_couche, theta_neurone_couche, data=[(),()], delta=0)->dict:
     """
@@ -94,7 +88,7 @@ def R(data, reseaux):
     ----------
     reseaux : dict
         Réseau 'MLP'.
-    data : list de couple
+    data : list de coupsle
         de la forme [(X1,Y1), (X2,Y2),]
     Returns
     -------
@@ -363,6 +357,107 @@ def gradient(data, reseaux)->np.array :                                         
                 #print(reseaux[f"N_{couche+1}_{emplacement+1}"]["delta"]*np.array(entree))
                 
     return np.array(grad)/len(data)
+
+
+
+
+def une_descente_grad(data, reseaux, eta, grad):
+    """
+    Fonction réalisant une descente de gradient à pas constant en les mettant à jour
+
+    Parameters
+    ----------
+    data : list de couple
+        Donnée avec lesquels on entraîne le reseaux.
+
+    Returns
+    -------
+    None
+    """
+    theta = np.array([reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"][wb] for couche in range(len(reseaux["couche"])) 
+                      for emplacement in range(reseaux["couche"][couche]) for wb in range(len(reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"]))] )                                
+                                                                                #les thetas sont l'ordre suivant : theta du neurone en couche 1 emplacement 1 (1_1),  
+                                                                                #theta du neurone en couche 1 emplacement 2 (1_2),...,theta du neurone en couche L emplacement nL (L_nL)
+    attribution = 0
+    theta = theta - eta * grad
+    for couche in range(len(reseaux["couche"])):                           #mise à jour des theta de tous les neurones du réseaux
+        nombre_param=len(reseaux[f"N_{couche+1}_1"]["theta"])
+        for emplacement in range(reseaux["couche"][couche]):
+            reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"]=theta[attribution:attribution+nombre_param]
+            attribution+=nombre_param
+    return reseaux
+    
+def EGD(data, reseaux)->None:                             
+    """
+    Fonction réalisant la minimisation de la fonction de coût R(theta) associée
+    au reseaux par la méthode de descente de gradient à pas constant en les mettant à jour
+
+    Parameters
+    ----------
+    data : list de couple
+        Donnée avec lesquels on entraîne le reseaux.
+
+    Returns
+    -------
+    None
+    """
+    theta = np.array([reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"][wb] for couche in range(len(reseaux["couche"])) 
+                      for emplacement in range(reseaux["couche"][couche]) for wb in range(len(reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"]))] )                                
+    epsilon = 1e-4                                                             #les thetas sont l'ordre suivant : theta du neurone en couche 1 emplacement 1 (1_1),  
+    eta = 1e-3                                                                 #theta du neurone en couche 1 emplacement 2 (1_2),...,theta du neurone en couche L emplacement nL (L_nL)
+    eta0 = 1e3                                                                 #eta multiplicatif 
+    n_max = 1000
+    couts=[0 for _ in range(n_max+1)]                                           #pour l'affichage en matplotlib
+    
+    for _ in range(n_max):
+        compteur_egd = 100
+        attribution=0                                                          #compteur pour réatribuer les poids et biais à chaque neurones
+        grad = gradient(data, reseaux)
+        
+        if np.linalg.norm(grad) <= epsilon:
+            #print("sortie")
+            break
+        
+      
+        couts[_]=  R(data, reseaux) 
+        eta=eta*eta0
+        
+        mlp_copie=copy.deepcopy(reseaux)                                        #a optimiser/ trouver autre methode pour calculer cout
+        une_descente_grad(data, mlp_copie, eta, grad)
+        while R(data, mlp_copie)>couts[_] and compteur_egd!=0 :
+            compteur_egd-=1
+            eta=eta/2                                                          #surement ref partager
+            mlp_copie=reseaux                                                  #a optimiser/ trouver autre methode
+            une_descente_grad(data, mlp_copie, eta, grad)
+            
+        theta = theta - eta * grad
+        #print(theta)
+        for couche in range(len(reseaux["couche"])):                           #mise à jour des theta de tous les neurones du réseaux
+            nombre_param=len(reseaux[f"N_{couche+1}_1"]["theta"])
+            for emplacement in range(reseaux["couche"][couche]):
+                #print("theta : ",end="")
+                #print(theta[attribution:attribution+nombre_param])
+                reseaux[f"N_{couche+1}_{emplacement+1}"]["theta"]=theta[attribution:attribution+nombre_param]
+                attribution+=nombre_param
+        #affichage(MLP)
+    
+    print(couts)
+    couts[-1]=R(data, reseaux)
+    x = np.arange(n_max+1)
+    y = couts
+    plt.figure("Cout")
+    plt.xlim(min(x), max(x))                                                   #zoom pour voir l'évolution du coût
+    plt.ylim(min(y), max(y))
+    plt.plot(x, y)
+    plt.axhline(color ='black')
+    plt.axvline(color ='black')
+    plt.grid() 
+    plt.xlabel('n° itération')
+    plt.ylabel('coût')
+    plt.title('Evolution du coût')
+    plt.show()
+    return None
+
 #################################### Fonction maths ####################################      
 sigmoid = lambda x: 1/(1+np.exp(-x))
 derive_sigmoid = lambda x: sigmoid(x)*(1-sigmoid(x))
@@ -455,48 +550,15 @@ gradient_a_pas_constant(data_these, MLP_these)
 affichage(MLP_these)
 print(R(data_these,MLP_these))"""
 #################################### fonction de validation ####################################
-f1 = lambda x : x**3/3
-f2 = lambda x : x**2-4
-derive_f1 = lambda x : x**2
-derive_f2 = lambda x : 2*x
-W_valid1=np.array([
-    [0.5],
-    [0.15]])
-W_valid2=np.array([
-    [0.2, -0.3],
-    [0.2, 0.2],
-    [-0.04, 0.6]])
-b_valid1=np.array([
-    [0.05],
-    [-0.1]])
-b_valid2=np.array([
-    [-0.55],
-    [-2.2],
-    [-0.4]])
-data_valid=[([0],[0,1,0]), ([1],[1,1,1])]                                      #A choisir (13 variables au total)
-MLP_validation=créer_mlp([2,3], [f1,f2], [derive_f1,derive_f2], [np.concatenate((W_valid1, b_valid1), axis=1), np.concatenate((W_valid2, b_valid2), axis=1)], data_valid)
-gradient_a_pas_constant(data_valid, MLP_validation)
+f1 = lambda x : (x+2)**2
+f2 = lambda x : np.log(1+x**2)
+derive_f1 = lambda x : 2*x
+derive_f2 = lambda x : 2*x/(1+x**2)
+
+data_valid=[([0],[np.log(290)]), ([1],[np.log(2653.25)]), ([-1],[np.log(4693.25)]), ([2],[np.log(18770)]), ([-2],[np.log(10610)]), ([-3],[np.log(14521.25)]), ([3],[np.log(57361.25)])]                                      #A choisir (13 variables au total)
+MLP_validation=créer_mlp([2,1], [f1,f2], [derive_f1,derive_f2], [ [[0.8, -7.1], [0.9, 8.2]], [[-3.94, -1.01, -71]] ], data_valid)
+# (1/2 , -5, 3, 7, -2, 1, -80) A trouver
+EGD(data_valid, MLP_validation)
+#gradient_a_pas_constant(data_valid, MLP_validation)
 affichage(MLP_validation)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+print(R(data_valid, MLP_validation))
