@@ -70,7 +70,54 @@ class MLP:
             self.valeur_fonction[couche] = sortie_couche
             X = sortie_couche + np.array([1])  
         return None
+    def delta_fin(self, Xi):
+        couche = len(self.taille)
     
+        # Propagation avant sur l'entrée
+        self.propa_globale(Xi[0])
+    
+        # Sortie du réseau
+        X_fin = self.valeur_fonction[-1]
+    
+        # Dérivée de la fonction d'activation sur la dernière couche
+        derive = self.derive_fonction_couche[-1](np.array(self.valeur_Z[-1], dtype=float))
+    
+        # Delta de la dernière couche
+        delta = (np.array(X_fin, dtype=float) - np.array(Xi[1], dtype=float)) * derive
+    
+        # Mise à jour de l'attribut delta
+        self.delta = delta
+    
+        return delta
+
+    def propa_arrière(self, couche):                                    #marche mais à vectorialiser
+        """
+        Fait la propagation arrière d'une couche du reseaux en mettant à jour les deltas de <couche>
+
+        Parameters
+        ----------
+        Z_vect : list
+            entrée de la couche considérée.
+        couche : int
+            n° de la couche d'avant.
+        reseaux : dict
+            reseaux MLP.
+
+        Returns
+        -------
+        None
+        """
+        delta = np.zeros(self.taille[couche - 1], dtype=float)
+    
+        for i in range(self.taille[couche - 1]):
+            for j in range(self.taille[couche]):
+                delta[i] += (
+                    self.delta[couche][j]
+                    * self.theta[couche][j][i]
+                    * self.derive_fonction_couche[couche - 1](self.valeur_Z[couche - 1][i])
+                )
+    
+        self.delta[couche - 1] = delta
     
         
         
