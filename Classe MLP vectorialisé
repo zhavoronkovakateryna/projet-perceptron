@@ -1,0 +1,51 @@
+# -*- coding: utf-8 -*-
+#################################### Import ####################################
+import numpy as np
+import matplotlib.pyplot as plt
+#################################### Main ######################################
+class MLP:
+    def __init__(self, nb_neurone_par_couche, fonction_couche, derivé_fonction_couche, theta_neurone_couche = np.array([ np.array([ np.array([ 1 for  ])])]))->None:
+        """
+        Fonction d'initialisation d'un neurones du réseau MLP
+
+        Parameters
+        ----------
+       nb_neurone_par_couche : list
+           de la forme [nb_neurone_couche_1,nb_neurone_couche_2,..].
+       fonction_couche : list
+           de la forme [fonction_couche_1,fonction_couche_2,..].
+       derivé_fonction_couche : list
+           de la forme [dérivé_fonction_couche_1,dérivé_fonction_couche_2,..].
+       theta_neurone_couche : array(array(array([ ])))
+           de la forme [ [ [N_1_1],..], [[N_2_1],..], .. ].
+
+        Returns
+        -------
+        None.
+        """
+        self.taille = nb_neurone_par_couche
+        self.fonction_couche = fonction_couche
+        self.derivé_fonction_couche = derivé_fonction_couche
+        self.theta = theta_neurone_couche
+        self.data = np.array([])
+        self.delta = 0
+        self.gradient = 0
+        self.valeur_fonction = np.array([])
+        self.valeur_Z = np.array([])
+        
+    def __repr__(self):
+        return f"|position : {self.position[0]},{self.position[1]} __ paramètre : {self.theta}|"
+
+    def data_entry(self)->None:
+        """
+        Fonction demandant et affecte le array au perceptron <self>
+
+        Returns
+        -------
+        None.
+        """
+        data = eval(input('Transmettez vos données: '))
+        self.data = np.array(data)                                             #data est une liste des couples(entree, sortie attendue)
+        
+    
+    
