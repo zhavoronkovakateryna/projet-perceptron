@@ -4,7 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 #################################### Main ######################################
 class MLP:
-    def __init__(self, nb_neurone_par_couche, fonction_couche, derivé_fonction_couche, theta_neurone_couche = np.array([ np.array([ np.array([ 1 for  ])])]))->None:
+    """= np.array([ np.array([ np.array([ 1 for neurone in range(len(nb_neurone_par_couche[couche]))] for couche in range(len(nb_neurone_par_couche))) ])])"""
+    def __init__(self, nb_neurone_par_couche, fonction_couche, derivé_fonction_couche, theta_neurone_couche ): 
         """
         Fonction d'initialisation d'un neurones du réseau MLP
 
@@ -30,11 +31,11 @@ class MLP:
         self.data = np.array([])
         self.delta = 0
         self.gradient = 0
-        self.valeur_fonction = np.array([])
+        self.valeur_fonction = np.array([0 for n in range(len(nb_neurone_par_couche))])
         self.valeur_Z = np.array([])
         
     def __repr__(self):
-        return f"|position : {self.position[0]},{self.position[1]} __ paramètre : {self.theta}|"
+        return f"|taille : {self.taille} __ paramètre : {self.theta}|"
 
     def data_entry(self)->None:
         """
@@ -46,6 +47,33 @@ class MLP:
         """
         data = eval(input('Transmettez vos données: '))
         self.data = np.array(data)                                             #data est une liste des couples(entree, sortie attendue)
+        
+    def propa_avant(self, entrée):
+        """
+        Fait la propagation avant de tout le reseaux avec <entrée> comme entrée du réseaux
+
+        Parameters
+        ----------
+        entrée : array
+            entrée considérée pour le réseau
+
+        Returns
+        -------
+        None.
+        """
+        nb_couche = len(self.taille)
+        sortie_couche = np.array([])
+        X = entrée + np.array([1])                              #ajout de 1 au array pour le produit matriciel du biais qui est présent dans X
+        for couche in range(nb_couche):
+            W = self.theta[couche]
+            sortie_couche = W @ X
+            self.valeur_fonction[couche] = sortie_couche
+            X = sortie_couche + np.array([1])  
+        return None
+    
+    
+        
+        
         
     
     
