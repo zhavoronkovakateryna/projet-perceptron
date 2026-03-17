@@ -1,0 +1,284 @@
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# ────────────────────────────────────────────────
+# Fonctions d'activation
+# ────────────────────────────────────────────────
+def sigmoid(x):    return 1 / (1 + np.exp(-x))
+def dsigmoid(x):   return sigmoid(x) * (1 - sigmoid(x))
+def identite(x):   return x
+def didentite(x):  return np.ones_like(x)
+def relu(x):       return np.maximum(0, x)
+def drelu(x):      return (x > 0).astype(float)
+def tanh(x): return np.tanh(x)
+def dtanh(x): return 1-tanh(x)**2
+
+# ────────────────────────────────────────────────
+# Fonction de coût (MSE)
+# ────────────────────────────────────────────────
+def mse(y_pred, y_true):
+    return 0.5 * np.mean((y_pred - y_true) ** 2)
+
+# ────────────────────────────────────────────────
+# Création du réseau (matrices de poids)
+# ────────────────────────────────────────────────
+def creer_mlp(nb_neurones_par_couche, activations, d_activations, dim_entree, theta_initial=None):
+    reseaux = {
+        "couches": nb_neurones_par_couche,
+        "activations": activations,
+        "d_activations": d_activations,
+        "Theta": [],
+        "Z": [],
+        "A": [],
+        "deltas": []
+    }
+
+    if theta_initial is not None:
+        for W in theta_initial:
+            reseaux["Theta"].append(np.array(W, dtype=float))
+    else:
+        # On part de la dimension réelle de tes données (13 pour Boston)
+        prev = dim_entree 
+        for n in nb_neurones_par_couche:
+            # Xavier Initialization : meilleur pour la convergence
+            std = np.sqrt(2 / (prev + n))
+            W = np.random.randn(n, prev + 1) * std 
+            reseaux["Theta"].append(W)
+            prev = n # La couche suivante reçoit la sortie de la précédente
+
+    return reseaux
+
+# ────────────────────────────────────────────────
+# Propagation avant (vectorisée)
+# ────────────────────────────────────────────────
+def propa_globale(X, reseaux):
+    reseaux["A"] = [np.asarray(X)]          # A[0] = entrée
+    reseaux["Z"] = []
+
+    activation = reseaux["A"][0]
+
+    for i, (W, f) in enumerate(zip(reseaux["Theta"], reseaux["activations"])):
+        entree_avec_biais = np.append(activation, 1.0)
+        z = np.dot(W, entree_avec_biais)
+        activation = f(z)
+
+        reseaux["Z"].append(z)
+        reseaux["A"].append(activation)
+
+    return activation
+
+# ────────────────────────────────────────────────
+# Rétropropagation vectorisée
+# ────────────────────────────────────────────────
+def delta_global(data_point, reseaux):
+    X, Y = data_point
+    propa_globale(X, reseaux)
+    
+    # Delta sortie — appel de la fonction dérivée avec z_L
+    z_L = reseaux["Z"][-1]
+    a_L = reseaux["A"][-1]
+    delta = (a_L - np.asarray(Y)) * reseaux["d_activations"][-1](z_L)
+    deltas = [delta]
+    
+    # Propagation arrière
+    for i in reversed(range(len(reseaux["Theta"]) - 1)):
+        W_next = reseaux["Theta"][i + 1][:, :-1]   # sans biais
+        z_curr = reseaux["Z"][i]
+        delta = np.dot(W_next.T, delta) * reseaux["d_activations"][i](z_curr)
+        deltas.insert(0, delta)
+    
+    reseaux["deltas"] = deltas
+    return deltas
+# ────────────────────────────────────────────────
+# Gradient moyen sur tout le dataset
+# ────────────────────────────────────────────────
+def gradient(data, reseaux):
+    grad_total = [np.zeros_like(W) for W in reseaux["Theta"]]
+
+    for x, y in data:
+        delta_global((x, y), reseaux)
+        for i in range(len(reseaux["Theta"])):
+            a_prev = np.append(reseaux["A"][i], 1.0)
+            grad_total[i] += np.outer(reseaux["deltas"][i], a_prev)
+
+    return [g / len(data) for g in grad_total]
+
+# ────────────────────────────────────────────────
+# Entraînement simple (avec logging)
+# ────────────────────────────────────────────────
+def entrainer_avec_backtracking(data, reseaux,
+                                eta0=0.5,
+                                n_max=5000,
+                                reduction=0.5,
+                                c_armijo=1e-4,
+                                verbose=True):
+    import copy
+    couts = []
+    etas = []
+    current_cost = sum(mse(propa_globale(x, reseaux), y) for x, y in data) / len(data)
+    couts.append(current_cost)
+    
+    if verbose:
+        print(f"It 0 | coût = {current_cost:.6f} | η initial = {eta0}")
+    
+    for it in range(1, n_max + 1):
+        grads = gradient(data, reseaux)
+        direction = [-g for g in grads]
+        eta = eta0
+        
+        # Backtracking corrigé
+        while True:
+            reseaux_candidat = copy.deepcopy(reseaux)
+            for i in range(len(reseaux["Theta"])):
+                reseaux_candidat["Theta"][i] += eta * direction[i]
+            
+            candidate_cost = sum(mse(propa_globale(x, reseaux_candidat), y)
+                                 for x, y in data) / len(data)
+            
+            if candidate_cost <= current_cost:
+                break  # eta accepté
+            
+            eta *= reduction
+            if eta < 1e-10:
+                print("Pas trop petit → abandon backtracking")
+                break
+        
+        for i in range(len(reseaux["Theta"])):
+            reseaux["Theta"][i] += eta * direction[i]
+        
+        current_cost = sum(mse(propa_globale(x, reseaux), y)
+                           for x, y in data) / len(data)
+        couts.append(current_cost)
+        etas.append(eta)
+        
+        if verbose and it % 200 == 0:
+            print(f"It {it:5d} | coût = {current_cost:.7f} | η utilisé = {eta:.6f}")
+    
+    # Tracés
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+    ax1.plot(couts)
+    ax1.set_yscale('log')
+    ax1.set_xlabel("Itérations")
+    ax1.set_ylabel("Coût (log)")
+    ax1.grid(True, alpha=0.3)
+    ax1.set_title("Évolution du coût")
+    ax2.plot(etas, color='darkgreen')
+    ax2.set_yscale('log')
+    ax2.set_xlabel("Itérations")
+    ax2.set_ylabel("η (log)")
+    ax2.grid(True, alpha=0.3)
+    ax2.set_title("Évolution du pas η")
+    plt.tight_layout()
+    plt.show()
+    
+    return reseaux, couts, etas
+
+import pandas as pd
+
+# Chemins vers tes fichiers (change selon où ils sont)
+train_inputs_file  = "/net/netud/l/kzhavoronko/Téléchargements/bases_donnees(1)/boston_inputs_train.csv"
+train_outputs_file = "/net/netud/l/kzhavoronko/Téléchargements/bases_donnees(1)/boston_outputs_train.csv"
+test_inputs_file   = "/net/netud/l/kzhavoronko/Téléchargements/bases_donnees(1)/boston_inputs_test.csv"
+test_outputs_file  = "/net/netud/l/kzhavoronko/Téléchargements/bases_donnees(1)/boston_outputs_test.csv"
+# full_data_file     = "boston_donnees.dat"   # optionnel
+
+# ────────────────────────────────────────────────
+# Chargement train
+# ────────────────────────────────────────────────
+
+# Si pas de header → décommente et ajuste
+X_train_df = pd.read_csv(train_inputs_file, header=None)
+y_train_df = pd.read_csv(train_outputs_file, header=None)
+
+# Si séparateur est ; ou espace → ajoute sep=';' ou sep='\s+'
+# Ex: pd.read_csv(..., sep=';')
+
+# Convertir en numpy
+X_train = X_train_df.values.astype(float)
+y_train = y_train_df.values.astype(float).flatten()   
+
+print("X_train shape :", X_train.shape)   # devrait être (n_train, 13)
+print("y_train shape :", y_train.shape)   # devrait être (n_train,)
+
+# ────────────────────────────────────────────────
+# Chargement test (même chose)
+# ────────────────────────────────────────────────
+X_test_df  = pd.read_csv(test_inputs_file, header=None)
+y_test_df  = pd.read_csv(test_outputs_file, header=None)
+
+X_test  = X_test_df.values.astype(float)
+y_test  = y_test_df.values.astype(float).flatten()
+
+print("X_test shape :", X_test.shape)
+print("y_test shape :", y_test.shape)
+
+
+X_train_scaled = X_train
+X_test_scaled  = X_test
+y_train_scaled = y_train
+y_test_scaled  = y_test
+
+# ────────────────────────────────────────────────
+# Format pour ton code (liste de tuples)
+# ────────────────────────────────────────────────
+data_train = [
+    (X_train_scaled[i].tolist(), [y_train_scaled[i]])   # sortie en liste de 1 élément
+    for i in range(len(X_train_scaled))
+]
+
+data_test = [
+    (X_test_scaled[i].tolist(), [y_test_scaled[i]])
+    for i in range(len(X_test_scaled))
+]
+
+print("\nExemple premier exemple train :", data_train[0])
+print("Nombre exemples train :", len(data_train))
+
+# Architecture adaptée à Boston (13 entrées → régression)
+nb_neurones_par_couche = [13, 15, 15,1]           # exemple raisonnable
+
+activations = [tanh, tanh, identite, identite]
+d_activations = [dtanh, dtanh, didentite, didentite]
+
+# Correction de l'appel
+reseaux = creer_mlp(
+    nb_neurones_par_couche = [13, 15, 15,1],
+    activations = [tanh, tanh, identite, identite],    # Remplace 'fonction_couche'
+    d_activations = [dtanh, dtanh, didentite, didentite], # Remplace 'derivé_fonction_couche'
+    theta_initial = None,
+    dim_entree=13
+)
+
+# Entraînement sur train
+entrainer_avec_backtracking(   
+    data=data_train,
+    reseaux=reseaux,
+    eta0=0.5,
+    n_max=3000,
+    verbose=True
+)
+
+# Prédictions sur test (échelle normalisée)
+preds_scaled = []
+for x, _ in data_test:
+    pred = propa_globale(x, reseaux)[0]       # sortie scalaire
+    preds_scaled.append(pred)
+
+
+preds_reel  = np.array(preds_scaled)
+y_test_reel = np.array([y[0] for _, y in data_test])
+
+# Erreur absolue moyenne et RMSE
+print("Quelques prix réels :", y_test_reel[:5])
+print("Quelques prédictions :", preds_reel[:5])
+mae = np.mean(np.abs(preds_reel - y_test_reel))
+rmse = np.sqrt(np.mean((preds_reel - y_test_reel)**2))
+
+print(f"MAE sur test (normalisé) : {mae:.2f}")
+print(f"RMSE sur test (notmalisé) : {rmse:.2f}")
+
+variance_y_test = np.var(y_test_reel)
+r2 = 1 - (rmse**2 / variance_y_test)
+print(f"R² : {r2:.4f}")
