@@ -39,7 +39,7 @@ def creer_mlp(nb_neurones_par_couche, activations, d_activations, dim_entree, th
         for W in theta_initial:
             reseaux["Theta"].append(np.array(W, dtype=float))
     else:
-        # On part de la dimension réelle de tes données (13 pour Boston)
+        # On part de la dimension réelle des données (13 pour Boston)
         prev = dim_entree 
         for n in nb_neurones_par_couche:
             # Xavier Initialization : meilleur pour la convergence
