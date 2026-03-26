@@ -1,18 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Mar 17 15:55:53 2026
 
-@author: kzhavoronko
-"""
-
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Mar  9 17:48:11 2026
-
-@author: kzhavoronko
-"""
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -26,6 +12,8 @@ def identite(x):   return x
 def didentite(x):  return np.ones_like(x)
 def relu(x):       return np.maximum(0, x)
 def drelu(x):      return (x > 0).astype(float)
+def tanh(x): return np.tanh(x)
+def dtanh(x): return 1-tanh(x)**2
 
 # ────────────────────────────────────────────────
 # Fonction de coût (MSE)
@@ -249,26 +237,26 @@ print("\nExemple premier exemple train :", data_train[0])
 print("Nombre exemples train :", len(data_train))
 
 # Architecture adaptée à Boston (13 entrées → régression)
-nb_neurones_par_couche = [16, 12, 1]           # exemple raisonnable
+nb_neurones_par_couche = [13, 15, 15,1]           # exemple raisonnable
 
-activations = [relu, relu, identite]
-d_activations = [drelu, drelu, didentite]
+activations = [tanh, tanh, identite, identite]
+d_activations = [dtanh, dtanh, didentite, didentite]
 
 # Correction de l'appel
 reseaux = creer_mlp(
-    nb_neurones_par_couche = [16, 12, 1],
-    activations = [relu, relu, identite],    # Remplace 'fonction_couche'
-    d_activations = [drelu, drelu, didentite], # Remplace 'derivé_fonction_couche'
+    nb_neurones_par_couche = [13, 15, 15,1],
+    activations = [tanh, tanh, identite, identite],    # Remplace 'fonction_couche'
+    d_activations = [dtanh, dtanh, didentite, didentite], # Remplace 'derivé_fonction_couche'
     theta_initial = None,
     dim_entree=13
 )
 
 # Entraînement sur train
-entrainer_avec_backtracking(   # ou ta fonction préférée
+entrainer_avec_backtracking(   
     data=data_train,
     reseaux=reseaux,
     eta0=0.5,
-    n_max=10000,
+    n_max=3000,
     verbose=True
 )
 
