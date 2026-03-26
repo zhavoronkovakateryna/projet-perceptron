@@ -243,42 +243,106 @@ activations = [tanh, tanh, identite, identite]
 d_activations = [dtanh, dtanh, didentite, didentite]
 
 # Correction de l'appel
-reseaux = creer_mlp(
-    nb_neurones_par_couche = [13, 15, 15,1],
-    activations = [tanh, tanh, identite, identite],    # Remplace 'fonction_couche'
-    d_activations = [dtanh, dtanh, didentite, didentite], # Remplace 'derivé_fonction_couche'
-    theta_initial = None,
-    dim_entree=13
-)
+# reseaux = creer_mlp(
+#     nb_neurones_par_couche = [15, 15,1],
+#     activations = [tanh, tanh, identite],    # Remplace 'fonction_couche'
+#     d_activations = [dtanh, dtanh, didentite], # Remplace 'derivé_fonction_couche'
+#     theta_initial = None,
+#     dim_entree=13
+# )
 
-# Entraînement sur train
-entrainer_avec_backtracking(   
-    data=data_train,
-    reseaux=reseaux,
-    eta0=0.5,
-    n_max=3000,
-    verbose=True
-)
+# # Entraînement sur train
+# entrainer_avec_backtracking(   
+#     data=data_train,
+#     reseaux=reseaux,
+#     eta0=0.5,
+#     n_max=3000,
+#     verbose=True
+# )
 
 # Prédictions sur test (échelle normalisée)
-preds_scaled = []
-for x, _ in data_test:
-    pred = propa_globale(x, reseaux)[0]       # sortie scalaire
-    preds_scaled.append(pred)
+# preds_scaled = []
+# for x, _ in data_test:
+#     pred = propa_globale(x, reseaux)[0]       # sortie scalaire
+#     preds_scaled.append(pred)
 
 
-preds_reel  = np.array(preds_scaled)
-y_test_reel = np.array([y[0] for _, y in data_test])
+# preds_reel  = np.array(preds_scaled)
+# y_test_reel = np.array([y[0] for _, y in data_test])
 
-# Erreur absolue moyenne et RMSE
-print("Quelques prix réels :", y_test_reel[:5])
-print("Quelques prédictions :", preds_reel[:5])
-mae = np.mean(np.abs(preds_reel - y_test_reel))
-rmse = np.sqrt(np.mean((preds_reel - y_test_reel)**2))
+# # Erreur absolue moyenne et RMSE
+# print("Quelques prix réels :", y_test_reel[:5])
+# print("Quelques prédictions :", preds_reel[:5])
+# mae = np.mean(np.abs(preds_reel - y_test_reel))
+# rmse = np.sqrt(np.mean((preds_reel - y_test_reel)**2))
 
-print(f"MAE sur test (normalisé) : {mae:.2f}")
-print(f"RMSE sur test (notmalisé) : {rmse:.2f}")
+# print(f"MAE sur test (normalisé) : {mae:.2f}")
+# print(f"RMSE sur test (notmalisé) : {rmse:.2f}")
 
-variance_y_test = np.var(y_test_reel)
-r2 = 1 - (rmse**2 / variance_y_test)
-print(f"R² : {r2:.4f}")
+# variance_y_test = np.var(y_test_reel)
+# r2 = 1 - (rmse**2 / variance_y_test)
+# print(f"R² : {r2:.4f}")
+
+# ────────────────────────────────────────────────
+# Génération des 32 theta0 Xavier
+# ────────────────────────────────────────────────
+def gen_theta_xavier(seed, dims=[(13,15),(15,15),(15,1)]):
+    np.random.seed(seed)
+    return [np.random.uniform(-np.sqrt(6/(i+o)), np.sqrt(6/(i+o)), (o, i+1))
+            for (i,o) in dims]
+
+theta0_list = [gen_theta_xavier(seed) for seed in range(32)]
+
+# ────────────────────────────────────────────────
+# ← SEULE LIGNE À CHANGER PAR PC
+# ────────────────────────────────────────────────
+PC_ID    = 0
+mes_runs = [0]
+# PC1 → [4,  5,  6,  7]
+# PC2 → [8,  9,  10, 11]
+# PC3 → [12, 13, 14, 15]
+# PC4 → [16, 17, 18, 19]
+# PC5 → [20, 21, 22, 23]
+# PC6 → [24, 25, 26, 27]
+# PC7 → [28, 29, 30, 31]
+
+import csv
+resultats = []
+
+for i in mes_runs:
+    reseaux = creer_mlp(
+        nb_neurones_par_couche=[15, 15, 1],
+        activations=[tanh, tanh, identite],
+        d_activations=[dtanh, dtanh, didentite],
+        theta_initial=theta0_list[i],
+        dim_entree=13
+    )
+
+    reseaux, couts, etas = entrainer_avec_backtracking(
+        data=data_train,
+        reseaux=reseaux,
+        eta0=0.5,
+        n_max=3000,
+        verbose=False
+    )
+
+    preds       = np.array([propa_globale(x, reseaux)[0] for x, _ in data_test])
+    y_test_reel = np.array([y[0] for _, y in data_test])
+
+    mae  = np.mean(np.abs(preds - y_test_reel))
+    rmse = np.sqrt(np.mean((preds - y_test_reel)**2))
+    r2   = 1 - (rmse**2 / np.var(y_test_reel))
+
+    resultats.append({
+        "run": i, "seed": i,
+        "mae": round(mae,4), "rmse": round(rmse,4),
+        "r2": round(r2,6), "cout_final": round(couts[-1],8)
+    })
+    print(f"Run {i:2d} | seed={i} | MAE={mae:.3f} | R²={r2:.4f}")
+
+csv_path = f"campagne_pc{PC_ID}.csv"
+with open(csv_path, "w", newline="") as f:
+    writer = csv.DictWriter(f, fieldnames=["run","seed","mae","rmse","r2","cout_final"])
+    writer.writeheader()
+    writer.writerows(resultats)
+print(f"→ Sauvegardé : {csv_path}")
