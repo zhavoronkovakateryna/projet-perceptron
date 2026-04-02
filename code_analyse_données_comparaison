@@ -1,0 +1,343 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Apr  2 16:43:34 2026
+
+@author: mouldamezia
+"""
+
+import os
+import ast
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+
+# =========================================================
+# 1) PARAMETRES
+# =========================================================
+# Mets ici les bons chemins si les fichiers ne sont pas dans
+# le dossier de travail de Spyder.
+
+FILES = {
+    "GD": "fusion_triee_gd.csv",
+    "EGD": "fusion_triee_egd.csv",
+    "LCGD": "fusion_triee_lcgd.csv",
+}
+
+THETA_COLUMNS = ["theta0", "theta1", "theta2"]
+
+
+# =========================================================
+# 2) FONCTIONS DE LECTURE
+# =========================================================
+def load_result_file(path, method_name):
+    """
+    Lit un fichier CSV de résultats d'entraînement
+    et convertit theta0, theta1, theta2 en tableaux numpy.
+    """
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Fichier introuvable : {path}")
+
+    df = pd.read_csv(
+        path,
+        converters={col: ast.literal_eval for col in THETA_COLUMNS}
+    )
+
+    for col in THETA_COLUMNS:
+        df[col] = df[col].apply(np.array)
+
+    df["method"] = method_name
+    return df
+
+
+def add_theta_features(df):
+    """
+    Ajoute des variables utiles pour l'analyse statistique
+    des matrices theta.
+    """
+    df = df.copy()
+
+    for col in THETA_COLUMNS:
+        df[f"{col}_norm"] = df[col].apply(lambda x: np.linalg.norm(x))
+        df[f"{col}_mean"] = df[col].apply(np.mean)
+        df[f"{col}_std"] = df[col].apply(np.std)
+        df[f"{col}_min"] = df[col].apply(np.min)
+        df[f"{col}_max"] = df[col].apply(np.max)
+        df[f"{col}_absmean"] = df[col].apply(lambda x: np.mean(np.abs(x)))
+
+        # distance de chaque run au theta moyen de la méthode
+        mean_theta = np.mean(np.stack(df[col].to_numpy()), axis=0)
+        df[f"{col}_dist_to_mean"] = df[col].apply(
+            lambda x, m=mean_theta: np.linalg.norm(x - m)
+        )
+
+    df["theta_total_norm"] = np.sqrt(
+        df["theta0_norm"]**2 + df["theta1_norm"]**2 + df["theta2_norm"]**2
+    )
+
+    return df
+
+
+def flatten_theta_column(df, theta_name):
+    """
+    Transforme une colonne theta en DataFrame aplati :
+    une ligne = un run, une colonne = un coefficient.
+    """
+    flat = pd.DataFrame([x.flatten() for x in df[theta_name]])
+    flat.columns = [f"{theta_name}_{i}" for i in range(flat.shape[1])]
+    return flat
+
+
+# =========================================================
+# 3) CHARGEMENT DES DONNEES
+# =========================================================
+datasets = {}
+
+for method, path in FILES.items():
+    df = load_result_file(path, method)
+    df = add_theta_features(df)
+    datasets[method] = df
+
+all_runs = pd.concat(datasets.values(), ignore_index=True)
+
+print("\n==============================")
+print("APERÇU DES DONNÉES")
+print("==============================")
+print(all_runs[["method", "run", "seed", "cout_final"]].head())
+
+
+# =========================================================
+# 4) COMPARAISON DES METHODES SUR LE COUT FINAL
+# =========================================================
+cost_stats = (
+    all_runs.groupby("method")["cout_final"]
+    .agg(["count", "mean", "std", "min", "median", "max"])
+    .sort_values("mean")
+)
+
+print("\n==============================")
+print("STATISTIQUES SUR cout_final PAR METHODE")
+print("==============================")
+print(cost_stats)
+
+best_runs = all_runs.loc[
+    all_runs.groupby("method")["cout_final"].idxmin(),
+    ["method", "run", "seed", "cout_final"]
+].sort_values("cout_final")
+
+print("\n==============================")
+print("MEILLEUR RUN PAR METHODE")
+print("==============================")
+print(best_runs)
+
+best_global = all_runs.loc[all_runs["cout_final"].idxmin(),
+                           ["method", "run", "seed", "cout_final"]]
+
+print("\n==============================")
+print("MEILLEUR RUN GLOBAL")
+print("==============================")
+print(best_global)
+
+
+# =========================================================
+# 5) COMPARAISON SELON LA SEED
+# =========================================================
+seed_comparison = all_runs.pivot_table(
+    index="seed",
+    columns="method",
+    values="cout_final"
+)
+
+seed_comparison["best_method"] = seed_comparison.idxmin(axis=1)
+
+print("\n==============================")
+print("COMPARAISON PAR SEED")
+print("==============================")
+print(seed_comparison)
+
+wins_by_method = seed_comparison["best_method"].value_counts()
+
+print("\n==============================")
+print("NOMBRE DE FOIS OÙ CHAQUE METHODE EST LA MEILLEURE")
+print("==============================")
+print(wins_by_method)
+
+
+# =========================================================
+# 6) STATISTIQUES PAR RUN SUR LES THETAS
+# =========================================================
+theta_run_summary = all_runs[[
+    "method", "run", "seed", "cout_final",
+    "theta0_norm", "theta1_norm", "theta2_norm", "theta_total_norm",
+    "theta0_mean", "theta1_mean", "theta2_mean",
+    "theta0_std", "theta1_std", "theta2_std",
+    "theta0_min", "theta1_min", "theta2_min",
+    "theta0_max", "theta1_max", "theta2_max",
+    "theta0_absmean", "theta1_absmean", "theta2_absmean",
+    "theta0_dist_to_mean", "theta1_dist_to_mean", "theta2_dist_to_mean"
+]]
+
+print("\n==============================")
+print("RÉSUMÉ DES THETAS PAR RUN")
+print("==============================")
+print(theta_run_summary.head())
+
+
+# =========================================================
+# 7) STABILITE DES THETAS ENTRE LES RUNS
+# =========================================================
+stability_rows = []
+
+for method, df in datasets.items():
+    row = {"method": method}
+
+    for theta_name in THETA_COLUMNS:
+        stack = np.stack(df[theta_name].to_numpy())   # shape: (n_runs, ...)
+        coeff_std = stack.std(axis=0)
+
+        row[f"{theta_name}_coeff_std_mean"] = coeff_std.mean()
+        row[f"{theta_name}_coeff_std_max"] = coeff_std.max()
+
+    stability_rows.append(row)
+
+theta_stability = pd.DataFrame(stability_rows)
+
+print("\n==============================")
+print("STABILITÉ DES THETAS PAR METHODE")
+print("Plus coeff_std_mean est faible, plus la méthode est stable")
+print("==============================")
+print(theta_stability)
+
+
+# =========================================================
+# 8) LIEN ENTRE cout_final ET NORME DES POIDS
+# =========================================================
+corr_rows = []
+
+for method, df in datasets.items():
+    corr = df[[
+        "cout_final",
+        "theta0_norm",
+        "theta1_norm",
+        "theta2_norm",
+        "theta_total_norm"
+    ]].corr()["cout_final"]
+
+    corr_rows.append({
+        "method": method,
+        "corr_cout_theta0_norm": corr["theta0_norm"],
+        "corr_cout_theta1_norm": corr["theta1_norm"],
+        "corr_cout_theta2_norm": corr["theta2_norm"],
+        "corr_cout_theta_total_norm": corr["theta_total_norm"],
+    })
+
+correlation_table = pd.DataFrame(corr_rows)
+
+print("\n==============================")
+print("CORRELATIONS ENTRE cout_final ET NORMES DES THETAS")
+print("==============================")
+print(correlation_table)
+
+
+# =========================================================
+# 9) TABLEAUX APLATIS DES THETAS
+# =========================================================
+# Utile si tu veux faire des stats coefficient par coefficient.
+
+for method, df in datasets.items():
+    for theta_name in THETA_COLUMNS:
+        flat = flatten_theta_column(df, theta_name)
+        flat.insert(0, "seed", df["seed"].values)
+        flat.insert(0, "run", df["run"].values)
+        flat.insert(0, "method", df["method"].values)
+
+        filename = f"{theta_name.lower()}_aplati_{method.lower()}.csv"
+        flat.to_csv(filename, index=False)
+        print(f"Fichier exporté : {filename}")
+
+
+# =========================================================
+# 10) EXPORT DES TABLEAUX DE SYNTHÈSE
+# =========================================================
+cost_stats.to_csv("stats_cout_par_methode.csv")
+best_runs.to_csv("meilleurs_runs_par_methode.csv", index=False)
+seed_comparison.to_csv("comparaison_par_seed.csv")
+theta_run_summary.to_csv("resume_thetas_par_run.csv", index=False)
+theta_stability.to_csv("stabilite_thetas_par_methode.csv", index=False)
+correlation_table.to_csv("correlations_cout_normes.csv", index=False)
+
+print("\nFichiers de synthèse exportés :")
+print("- stats_cout_par_methode.csv")
+print("- meilleurs_runs_par_methode.csv")
+print("- comparaison_par_seed.csv")
+print("- resume_thetas_par_run.csv")
+print("- stabilite_thetas_par_methode.csv")
+print("- correlations_cout_normes.csv")
+
+
+# =========================================================
+# 11) GRAPHIQUES
+# =========================================================
+
+# --- Boxplot des couts finaux par méthode
+plt.figure(figsize=(8, 5))
+data_boxplot = [datasets[m]["cout_final"].values for m in FILES.keys()]
+plt.boxplot(data_boxplot, labels=list(FILES.keys()))
+plt.title("Comparaison de cout_final par méthode")
+plt.ylabel("cout_final")
+plt.grid(True)
+plt.tight_layout()
+
+# --- Evolution du coût selon la seed
+plt.figure(figsize=(9, 5))
+for method, df in datasets.items():
+    df_sorted = df.sort_values("seed")
+    plt.plot(df_sorted["seed"], df_sorted["cout_final"], marker="o", label=method)
+plt.title("cout_final selon la seed")
+plt.xlabel("seed")
+plt.ylabel("cout_final")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+
+# --- Coût final vs norme totale des theta
+plt.figure(figsize=(8, 5))
+for method, df in datasets.items():
+    plt.scatter(df["theta_total_norm"], df["cout_final"], label=method)
+plt.title("cout_final en fonction de la norme totale des theta")
+plt.xlabel("theta_total_norm")
+plt.ylabel("cout_final")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+
+# --- Distance au theta moyen (stabilité interne)
+plt.figure(figsize=(9, 5))
+for method, df in datasets.items():
+    plt.plot(
+        df["seed"],
+        df["theta0_dist_to_mean"] + df["theta1_dist_to_mean"] + df["theta2_dist_to_mean"],
+        marker="o",
+        label=method
+    )
+plt.title("Distance des runs au theta moyen de leur méthode")
+plt.xlabel("seed")
+plt.ylabel("distance totale au theta moyen")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+
+plt.show()
+
+
+# =========================================================
+# 12) ACCES DIRECT AUX THETAS SI TU VEUX LES REUTILISER
+# =========================================================
+# Exemple :
+# theta0 du run 0 pour GD :
+theta0_gd_run0 = datasets["GD"].loc[datasets["GD"]["run"] == 0, "theta0"].iloc[0]
+
+print("\nExemple theta0 du run 0 pour GD :")
+print(theta0_gd_run0)
+print("Shape :", theta0_gd_run0.shape)
