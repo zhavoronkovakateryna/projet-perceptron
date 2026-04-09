@@ -9,6 +9,9 @@ def sigmoid(x):
 def ReLU(x):
     return np.maximum(0, x)
 
+def identite(x):
+    return x
+
 def d_sigmoid(x): 
     return sigmoid(x) * (1 - sigmoid(x))
 
@@ -17,6 +20,9 @@ def d_ReLU(x):
     grad[x > 0] = 1
     grad[x == 0] = 0.5
     return grad
+
+def d_identite(x):
+    return 1
 
 # ────────────────────────────────────────────────
 # Fonction de coût (MSE)
@@ -156,8 +162,8 @@ reseaux = creer_mlp(
 """
 reseaux = creer_mlp(
     nb_neurones_par_couche=[2, 1],
-    activations=[ReLU, ReLU],
-    d_activations=[d_ReLU, d_ReLU],
+    activations=[ReLU, identite],
+    d_activations=[d_ReLU, d_identite],
     dim_entree=2,
     theta_initial=[
         [[0.5, -1, 0.3],      # couche cachée
