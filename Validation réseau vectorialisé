@@ -147,17 +147,17 @@ def debug_un_exemple(x, y, reseaux):
 # ────────────────────────────────────────────────
 
 # Architecture : 2 → 2 → 1
-"""
+
 reseaux = creer_mlp(
     nb_neurones_par_couche=[2, 1],
     activations=[sigmoid, sigmoid],
     d_activations=[d_sigmoid, d_sigmoid],
     dim_entree=2,
     theta_initial=[
-        [[1, 2, 0],      # couche cachée
-         [3, 4, 0]],
+        [[0.5, -1, 0.3],      # couche cachée
+         [0.3, 0.8, 1]],
         
-        [[1, -1, 0]]     # couche sortie
+        [[0.7, -0.4, -0.05]]     # couche sortie
     ])
 """
 reseaux = creer_mlp(
@@ -171,7 +171,7 @@ reseaux = creer_mlp(
         
         [[0.7, -0.4, -0.05]]     # couche sortie
     ])
-
+"""
 # Donnée de test
 x = [1, -2]
 y = [0.9]
