@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.decomposition import PCA
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from scipy.stats import wilcoxon
 
@@ -345,7 +344,7 @@ for i in range(len(methods)):
 wilcoxon_table = pd.DataFrame(wilcoxon_rows)
 
 # =========================================================
-# 12) COMPARAISON PAR POINT (DONNEES DE TEST)
+# 12) COMPARAISON PAR POINT (DONNEES DE TEST DE BOSTON)
 # =========================================================
 
 X_test = pd.read_csv("boston_inputs_test.csv").values
@@ -487,7 +486,6 @@ plt.tight_layout()
 # -----------------------------------------------------------
 # 15.4 — Graphiques des résidus (résidus vs y_pred)
 # -----------------------------------------------------------
-
 fig, axes = plt.subplots(1, len(FILES), figsize=(14, 4), sharey=True)
 
 for ax, method in zip(axes, FILES.keys()):
