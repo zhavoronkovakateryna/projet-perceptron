@@ -20,6 +20,14 @@ FILES = {
 
 THETA_COLUMNS = ["theta0", "theta1", "theta2"]
 
+FEATURE_NAMES = [
+    "CRIM", "ZN", "INDUS", "CHAS", "NOX",
+    "RM", "AGE", "DIS", "RAD", "TAX",
+    "PTRATIO", "B", "LSTAT"
+]
+
+os.makedirs("figures", exist_ok=True)
+
 # =========================================================
 # 2) FONCTIONS DE LECTURE ET DE TRAITEMENT
 # =========================================================
@@ -80,44 +88,30 @@ def flatten_theta_column(df, theta_name):
     flat.columns = [f"{theta_name}_{i}" for i in range(flat.shape[1])]
     return flat
 
+
 def predict(X, theta0, theta1, theta2):
     """
     Prédiction MLP à 2 couches cachées (tanh, tanh, linéaire).
     Convention : biais inclus en dernière colonne des thetas.
     """
-    # couche 1
     z1 = X @ theta0.T
-    """
-    print("\n=== LAYER 1 ===")
-    print("z1:", z1.shape)
-    """
     a1 = np.tanh(z1)
-    #print("a1:", a1.shape)
-
-    # biais couche 1
     a1b = np.hstack([a1, np.ones((a1.shape[0], 1))])
-    #print("a1b (with bias):", a1b.shape)
 
-    # couche 2
     z2 = a1b @ theta1.T
-    """
-    print("\n=== LAYER 2 ===")
-    print("z2:", z2.shape)
-    """
     a2 = np.tanh(z2)
-    #print("a2:", a2.shape)
-
-    # biais couche 2
     a2b = np.hstack([a2, np.ones((a2.shape[0], 1))])
-    #print("a2b (with bias):", a2b.shape)
 
-    # sortie
     z3 = a2b @ theta2.T
-    """
-    print("\n=== OUTPUT ===")
-    print("z3:", z3.shape)
-    """
     return z3.flatten()
+
+
+def save_and_close(filename):
+    """Sauvegarde la figure courante et libère la mémoire."""
+    plt.savefig(f"figures/{filename}", dpi=150, bbox_inches="tight")
+    plt.close()
+
+
 # =========================================================
 # 3) CHARGEMENT DES DONNEES
 # =========================================================
@@ -137,7 +131,97 @@ print("==============================")
 print(all_runs[["method", "run", "seed", "cout_final"]].head())
 
 # =========================================================
-# 4) COMPARAISON DES METHODES SUR LE COUT FINAL
+# 4) SECTION EDA — EXPLORATION DES DONNÉES DE TEST
+# =========================================================
+
+print("\n==============================")
+print("EDA — EXPLORATION DES DONNÉES")
+print("==============================")
+
+X_test_raw = pd.read_csv("boston_inputs_test.csv", header=None).values
+y_true = pd.read_csv("boston_outputs_test.csv", header=None).values.flatten()
+
+# Ajout du biais (colonne de 1) pour la prédiction (plus tard)
+X_test = np.hstack([X_test_raw, np.ones((X_test_raw.shape[0], 1))])
+
+# DataFrame lisible pour l'EDA
+df_boston = pd.DataFrame(X_test_raw, columns=FEATURE_NAMES)
+df_boston["MEDV"] = y_true
+
+print("\n--- Statistiques descriptives ---")
+print(df_boston.describe().round(3))
+
+print(f"\n--- Jeu de test : {df_boston.shape[0]} observations, "
+      f"{df_boston.shape[1] - 1} features ---")
+print(f"Cible MEDV : min={y_true.min():.2f}, max={y_true.max():.2f}, "
+      f"moy={y_true.mean():.2f}, std={y_true.std():.2f}")
+
+# -----------------------------------------------------------
+# EDA 1 — Distribution de la cible MEDV
+# -----------------------------------------------------------
+fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+
+axes[0].hist(y_true, bins=20, color="steelblue", edgecolor="white", linewidth=0.8)
+axes[0].set_title("Distribution de MEDV (cible)")
+axes[0].set_xlabel("Prix médian")
+axes[0].set_ylabel("Fréquence")
+axes[0].axvline(y_true.mean(), color="red", linestyle="--",
+                label=f"Moyenne = {y_true.mean():.2f}")
+axes[0].axvline(np.median(y_true), color="orange", linestyle=":",
+                label=f"Médiane = {np.median(y_true):.2f}")
+axes[0].legend()
+axes[0].grid(True, alpha=0.3)
+
+sns.boxplot(y=y_true, ax=axes[1], color="steelblue", width=0.4)
+axes[1].set_title("Boîte à moustaches — MEDV")
+axes[1].set_ylabel("Prix médian")
+axes[1].grid(True, alpha=0.3)
+
+plt.suptitle("EDA — Variable cible MEDV", fontsize=13, fontweight="bold")
+plt.tight_layout()
+save_and_close("EDA_1_distribution_cible.png")
+
+# -----------------------------------------------------------
+# EDA 2 — Top corrélations avec MEDV (barplot)
+# -----------------------------------------------------------
+corr_target = df_boston.corr()["MEDV"].drop("MEDV").sort_values(key=abs, ascending=False)
+
+plt.figure(figsize=(9, 4))
+colors = ["tomato" if c < 0 else "steelblue" for c in corr_target.values]
+plt.bar(corr_target.index, corr_target.values, color=colors, edgecolor="k", linewidth=0.5)
+plt.axhline(0, color="black", linewidth=0.8)
+plt.title("Corrélation de chaque paramètre avec MEDV", fontweight="bold")
+plt.ylabel("Corrélation de Pearson")
+plt.xlabel("Paramètre")
+plt.grid(True, axis="y", alpha=0.3)
+plt.tight_layout()
+save_and_close("EDA_2_correlations_target.png")
+
+# -----------------------------------------------------------
+# EDA 3 — Scatter plots des 4 features les plus corrélées
+# -----------------------------------------------------------
+top4_features = corr_target.abs().nlargest(4).index.tolist()
+
+fig, axes = plt.subplots(1, 4, figsize=(16, 4))
+for ax, feat in zip(axes, top4_features):
+    ax.scatter(df_boston[feat], y_true, alpha=0.6, s=20, color="steelblue", edgecolors="k", linewidths=0.2)
+    # Droite de tendance
+    z = np.polyfit(df_boston[feat], y_true, 1)
+    p = np.poly1d(z)
+    xs = np.linspace(df_boston[feat].min(), df_boston[feat].max(), 100)
+    ax.plot(xs, p(xs), "r--", linewidth=1.5)
+    r = corr_target[feat]
+    ax.set_title(f"{feat}\n(r = {r:.2f})", fontsize=10)
+    ax.set_xlabel(feat)
+    ax.grid(True, alpha=0.3)
+
+axes[0].set_ylabel("MEDV (k$)")
+plt.suptitle("EDA — Top 4 paramètres corrélées avec MEDV", fontweight="bold")
+plt.tight_layout()
+save_and_close("EDA_3_scatter_top4.png")
+
+# =========================================================
+# 5) COMPARAISON DES METHODES SUR LE COUT FINAL
 # =========================================================
 
 cost_stats = (
@@ -151,7 +235,7 @@ print("STATISTIQUES SUR cout_final PAR METHODE")
 print("==============================")
 print(cost_stats)
 
-best_runs = all_runs.loc[
+best_method_runs = all_runs.loc[
     all_runs.groupby("method")["cout_final"].idxmin(),
     ["method", "run", "seed", "cout_final"]
 ].sort_values("cout_final")
@@ -159,7 +243,7 @@ best_runs = all_runs.loc[
 print("\n==============================")
 print("MEILLEUR RUN PAR METHODE")
 print("==============================")
-print(best_runs)
+print(best_method_runs)
 
 best_global = all_runs.loc[
     all_runs["cout_final"].idxmin(),
@@ -172,7 +256,7 @@ print("==============================")
 print(best_global)
 
 # =========================================================
-# 5) COMPARAISON SELON LA SEED
+# 6) COMPARAISON SELON LA SEED
 # =========================================================
 
 seed_comparison = all_runs.pivot_table(
@@ -196,7 +280,7 @@ print("==============================")
 print(wins_by_method)
 
 # =========================================================
-# 6) STATISTIQUES PAR RUN SUR LES THETAS
+# 7) STATISTIQUES PAR RUN SUR LES THETAS
 # =========================================================
 
 theta_run_summary = all_runs[[
@@ -216,7 +300,7 @@ print("==============================")
 print(theta_run_summary.head())
 
 # =========================================================
-# 7) STABILITE DES THETAS ENTRE LES RUNS
+# 8) STABILITE DES THETAS ENTRE LES RUNS
 # =========================================================
 
 stability_rows = []
@@ -239,7 +323,7 @@ print("==============================")
 print(theta_stability)
 
 # =========================================================
-# 8) LIEN ENTRE cout_final ET NORME DES POIDS
+# 9) LIEN ENTRE cout_final ET NORME DES POIDS
 # =========================================================
 
 corr_rows = []
@@ -253,9 +337,9 @@ for method, df in datasets.items():
 
     corr_rows.append({
         "method": method,
-        "corr_cout_theta0_norm":     corr["theta0_norm"],
-        "corr_cout_theta1_norm":     corr["theta1_norm"],
-        "corr_cout_theta2_norm":     corr["theta2_norm"],
+        "corr_cout_theta0_norm":      corr["theta0_norm"],
+        "corr_cout_theta1_norm":      corr["theta1_norm"],
+        "corr_cout_theta2_norm":      corr["theta2_norm"],
         "corr_cout_theta_total_norm": corr["theta_total_norm"],
     })
 
@@ -267,7 +351,7 @@ print("==============================")
 print(correlation_table)
 
 # =========================================================
-# 9) BIAIS / VARIANCE ET ROBUSTESSE
+# 10) BIAIS / VARIANCE ET ROBUSTESSE
 # =========================================================
 
 mean_cost = all_runs.groupby("method")["cout_final"].mean()
@@ -282,12 +366,11 @@ bias_variance = pd.DataFrame({
 
 print("\n==============================")
 print("BIAIS (proxy) / VARIANCE / ROBUSTESSE")
-print("(cout_moyen = proxy du biais ; CV = coefficient de variation)")
 print("==============================")
 print(bias_variance)
 
 # =========================================================
-# 10) QUANTILES (ROBUSTESSE AUX EXTREMES)
+# 11) QUANTILES (ROBUSTESSE AUX EXTREMES)
 # =========================================================
 
 quantiles = all_runs.groupby("method")["cout_final"].quantile([0.1, 0.9]).unstack()
@@ -298,15 +381,10 @@ print("==============================")
 print(quantiles)
 
 # =========================================================
-# 11) TESTS STATISTIQUES DE WILCOXON (PAIRWISE)
+# 12) TESTS STATISTIQUES DE WILCOXON (PAIRWISE)
 # =========================================================
-# Le test de Wilcoxon signed-rank est adapté ici car les runs
-# partagent les mêmes seeds (données appariées).
-# H0 : les deux distributions de coût sont identiques.
-# Si p < 0.05, la différence entre les deux méthodes est
-# statistiquement significative.
 
-methods = list(FILES.keys())
+method_list = list(FILES.keys())
 
 print("\n==============================")
 print("TESTS DE WILCOXON (comparaisons par paires)")
@@ -315,9 +393,9 @@ print("==============================")
 
 wilcoxon_rows = []
 
-for i in range(len(methods)):
-    for j in range(i + 1, len(methods)):
-        m1, m2 = methods[i], methods[j]
+for i in range(len(method_list)):
+    for j in range(i + 1, len(method_list)):
+        m1, m2 = method_list[i], method_list[j]
         costs1 = datasets[m1]["cout_final"].values
         costs2 = datasets[m2]["cout_final"].values
 
@@ -330,23 +408,17 @@ for i in range(len(methods)):
         )
 
         wilcoxon_rows.append({
-            "comparaison":   f"{m1} vs {m2}",
-            "W":             stat,
-            "p_value":       p,
-            "significatif":  significant
+            "comparaison":  f"{m1} vs {m2}",
+            "W":            stat,
+            "p_value":      p,
+            "significatif": significant
         })
 
 wilcoxon_table = pd.DataFrame(wilcoxon_rows)
 
 # =========================================================
-# 12) COMPARAISON PAR POINT (DONNEES DE TEST DE BOSTON)
+# 13) COMPARAISON PAR POINT (DONNEES DE TEST)
 # =========================================================
-
-X_test = pd.read_csv("boston_inputs_test.csv", header=None).values
-y_true = pd.read_csv("boston_outputs_test.csv", header=None).values.flatten()
-
-# Ajout du biais (colonne de 1)
-X_test = np.hstack([X_test, np.ones((X_test.shape[0], 1))])
 
 error_data   = []
 metrics_rows = []
@@ -367,7 +439,8 @@ for method, df in datasets.items():
         "Méthode": method,
         "MSE":     mean_squared_error(y_true, y_pred),
         "RMSE":    np.sqrt(mean_squared_error(y_true, y_pred)),
-        "MAE":     mean_absolute_error(y_true, y_pred)
+        "MAE":     mean_absolute_error(y_true, y_pred),
+        "R²":      1 - np.sum((y_true - y_pred)**2) / np.sum((y_true - y_true.mean())**2)
     })
 
 error_df = pd.DataFrame(error_data)
@@ -390,9 +463,9 @@ print("\n==============================")
 print("ERREUR ABSOLUE MOYENNE PAR METHODE (point par point)")
 print("==============================")
 print(pivot_errors.drop(columns="best_method").mean())
-# =========================================================
+
 nb_affichage = 5
-# =========================================================
+
 for method in FILES.keys():
     print(f"\n=== POINTS LES PLUS DIFFICILES — {method} ===")
     hard = pivot_errors.sort_values(by=method, ascending=False).head(nb_affichage)
@@ -404,7 +477,7 @@ for method in FILES.keys():
     print(easy[[method]])
 
 # =========================================================
-# 13) TABLEAUX APLATIS DES THETAS (EXPORT)
+# 14) TABLEAUX APLATIS DES THETAS (EXPORT)
 # =========================================================
 
 for method, df in datasets.items():
@@ -416,11 +489,11 @@ for method, df in datasets.items():
         flat.to_csv(f"{theta_name.lower()}_aplati_{method.lower()}.csv", index=False)
 
 # =========================================================
-# 14) EXPORT DES TABLEAUX DE SYNTHESE
+# 15) EXPORT DES TABLEAUX DE SYNTHESE
 # =========================================================
 
 cost_stats.to_csv("stats_cout_par_methode.csv")
-best_runs.to_csv("meilleurs_runs_par_methode.csv", index=False)
+best_method_runs.to_csv("meilleurs_runs_par_methode.csv", index=False)
 seed_comparison.to_csv("comparaison_par_seed.csv")
 theta_run_summary.to_csv("resume_thetas_par_run.csv", index=False)
 theta_stability.to_csv("stabilite_thetas_par_methode.csv", index=False)
@@ -429,187 +502,249 @@ wilcoxon_table.to_csv("tests_wilcoxon.csv", index=False)
 metrics_df.to_csv("metriques_test.csv")
 
 # =========================================================
-# 15) GRAPHIQUES
+# 16) GRAPHIQUES
 # =========================================================
 
 # -----------------------------------------------------------
-# 15.1 — Violin plot des coûts finaux par méthode
+# 16.1 — Violin plot des coûts finaux par méthode
 # -----------------------------------------------------------
 plt.figure(figsize=(8, 5))
 ax = sns.violinplot(
     data=all_runs,
     x="method", y="cout_final",
     hue="method",
-    inner="box",           # affiche la boîte à moustaches à l'intérieur
+    inner="box",
     palette="Set2"
-    )
+)
 ax.set_ylabel("Coût final")
-plt.title("Distribution du coût final par méthode")
+plt.title("Distribution du coût final par méthode", fontweight="bold")
 plt.xlabel("Méthode")
 plt.ylabel("Coût final")
-plt.grid(True, axis="y")
+plt.grid(True, axis="y", alpha=0.3)
 plt.tight_layout()
+save_and_close("16_1_violin_cout_final.png")
 
 # -----------------------------------------------------------
-# 15.2 — Évolution du coût selon la seed
+# 16.2 — Évolution du coût selon la seed
 # -----------------------------------------------------------
 plt.figure(figsize=(9, 5))
 for method, df in datasets.items():
     df_sorted = df.sort_values("seed")
     plt.plot(df_sorted["seed"], df_sorted["cout_final"], marker="o", label=method)
-plt.title("Coût final selon la seed")
-plt.xlabel("Seed")
+plt.title("Coût final selon la seed", fontweight="bold")
+plt.xlabel("Run")
 plt.ylabel("Coût final")
 plt.legend()
-plt.grid(True)
+plt.grid(True, alpha=0.3)
 plt.tight_layout()
+save_and_close("16_2_cout_par_seed.png")
 
 # -----------------------------------------------------------
-# 15.3 — Coût final vs norme totale des theta
+# 16.3 — Coût final vs norme totale des theta
 # -----------------------------------------------------------
 plt.figure(figsize=(8, 5))
 for method, df in datasets.items():
     plt.scatter(df["theta_total_norm"], df["cout_final"], label=method, alpha=0.7)
-plt.title("Coût final en fonction de la norme totale des theta")
+plt.title("Coût final en fonction de la norme totale des theta", fontweight="bold")
 plt.xlabel("norme_theta_total")
 plt.ylabel("Coût final")
 plt.legend()
-plt.grid(True)
+plt.grid(True, alpha=0.3)
 plt.tight_layout()
+save_and_close("16_3_cout_vs_norme_theta.png")
 
 # -----------------------------------------------------------
-# 15.4 — Graphiques des résidus (résidus vs y_pred)
+# 16.4 — Prédit vs Réel (meilleur run par méthode)
 # -----------------------------------------------------------
-n_bis = 2
-methods = list(FILES.keys())
+fig, axes = plt.subplots(1, len(FILES), figsize=(14, 4), sharey=True)
 
-best_preds = {m: [] for m in methods}
-worst_preds = {m: [] for m in methods}
+global_min = min(y_true.min(), min(p.min() for p in predictions.values()))
+global_max = max(y_true.max(), max(p.max() for p in predictions.values()))
 
-# -----------------------
-# 1. calcul prédictions
-# -----------------------
+for ax, method in zip(axes, predictions):
+    y_pred = predictions[method]
+    rmse   = np.sqrt(mean_squared_error(y_true, y_pred))
+    r2     = 1 - np.sum((y_true - y_pred)**2) / np.sum((y_true - y_true.mean())**2)
+
+    ax.scatter(y_true, y_pred, alpha=0.65, s=25,
+               edgecolors="k", linewidths=0.2, color="steelblue")
+
+    # Droite de parfaite prédiction
+    ax.plot([global_min, global_max], [global_min, global_max],
+            "r--", linewidth=1.5, label="Prédiction parfaite")
+
+    ax.set_title(f"{method}\nRMSE={rmse:.2f} | R²={r2:.3f}", fontsize=10)
+    ax.set_xlabel("Coût normalisé réel")
+    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=8)
+    ax.set_xlim(global_min - 1, global_max + 1)
+    ax.set_ylim(global_min - 1, global_max + 1)
+
+axes[0].set_ylabel("Coût normalisé prédit")
+plt.suptitle("Prédit vs Réel — meilleur run par méthode", fontweight="bold", fontsize=13)
+plt.tight_layout()
+save_and_close("16_4_predit_vs_reel.png")
+
+# -----------------------------------------------------------
+# 16.5 — Distribution des résidus (histogramme + KDE)
+# -----------------------------------------------------------
+fig, axes = plt.subplots(2, len(FILES), figsize=(14, 8))
+
+for col_idx, method in enumerate(predictions):
+    y_pred    = predictions[method]
+    residuals = y_true - y_pred
+
+    # --- ligne 1 : histogramme + KDE + Gaussienne ---
+    ax_hist = axes[0, col_idx]
+    ax_hist.set_title(f"{method}")
+    ax_hist.hist(residuals, bins=20, density=True,
+                 color="steelblue", edgecolor="white",
+                 linewidth=0.8, alpha=0.8, label="Résidus")
+
+    # KDE
+    from scipy.stats import gaussian_kde
+    kde = gaussian_kde(residuals)
+    xs  = np.linspace(residuals.min(), residuals.max(), 200)
+    ax_hist.plot(xs, kde(xs), color="red", linewidth=2, label="KDE")
+
+    # --- Courbe gaussienne théorique ---
+    mu = np.mean(residuals)
+    sigma = np.std(residuals)
+
+    from scipy.stats import norm
+    gauss = norm.pdf(xs, loc=mu, scale=sigma)
+    ax_hist.plot(xs, gauss, color="black", linestyle="--",
+                 linewidth=2, label="Gaussienne")
+
+    ax_hist.axvline(0, color="green", linestyle="--", linewidth=1.5, label="Zéro")
+    ax_hist.axvline(mu, color="orange", linestyle=":",
+                    linewidth=1.5, label=f"Moy={mu:.3f}")
+
+    ax_hist.set_xlabel("Résidu")
+    ax_hist.grid(True, alpha=0.3)
+    ax_hist.legend(fontsize=7)
+
+    if col_idx == 0:
+        ax_hist.set_ylabel("Densité")
+
+    # --- ligne 2 : résidus vs y_pred (graphique classique) ---
+    ax_scat = axes[1, col_idx]
+    ax_scat.scatter(y_pred, residuals, alpha=0.6, s=25,
+                    edgecolors="k", linewidths=0.2, color="steelblue")
+    ax_scat.axhline(0, color="green", linestyle="--", linewidth=1.5)
+    ax_scat.axhline(residuals.mean(), color="darkred", linestyle=":",
+                    linewidth=1.5, label=f"moy={residuals.mean():.3f}")
+    ax_scat.set_xlabel("Coût normalisé prédit")
+    ax_scat.grid(True, alpha=0.3)
+    ax_scat.legend(fontsize=7)
+    if col_idx == 0:
+        ax_scat.set_ylabel("Résidus")
+
+plt.suptitle("Distribution et analyse des résidus — meilleur run par méthode",
+             fontweight="bold", fontsize=13)
+plt.tight_layout()
+save_and_close("16_5_distribution_residus.png")
+
+# -----------------------------------------------------------
+# 16.6 — Graphiques des résidus (meilleurs et pires runs)
+# -----------------------------------------------------------
+n_bis    = 2
+top_runs  = {m: [] for m in method_list}
+bot_runs  = {m: [] for m in method_list}
+
 for method, df in datasets.items():
-
-    best_runs = df.nsmallest(n_bis, "cout_final")
-    worst_runs = df.nlargest(n_bis, "cout_final")
-
-    for _, run in best_runs.iterrows():
-        y_pred = predict(X_test, run["theta0"], run["theta1"], run["theta2"])
-        best_preds[method].append(y_pred)
-
-    for _, run in worst_runs.iterrows():
-        y_pred = predict(X_test, run["theta0"], run["theta1"], run["theta2"])
-        worst_preds[method].append(y_pred)
-
-
-titles_best = [f"Meilleur {i}" for i in range(1, n_bis+1)]
-titles_worst = [f"Pire {i}" for i in range(1, n_bis+1)]
-
-# -----------------------
-# 2. 4 FIGURES 
-# -----------------------
-for i in range(n_bis):
-
-    fig, axes = plt.subplots(1, 3, figsize=(14, 4), sharey=True)
-    fig.suptitle(titles_best[i])
-
-    for ax, method in zip(axes, methods):
-
-        y_pred = best_preds[method][i]
-        residuals = y_true - y_pred
-        mean_residual = residuals.mean()
-        
-        ax.scatter(
-            y_pred,
-            residuals,
-            alpha=0.6,
-            edgecolors="k",
-            linewidths=0.3
+    for _, run in df.nsmallest(n_bis, "cout_final").iterrows():
+        top_runs[method].append(
+            predict(X_test, run["theta0"], run["theta1"], run["theta2"])
         )
-        
-        ax.axhline(mean_residual, color="darkred", linestyle=":", linewidth=1.5,
-                   label=f"résidu moyen = {mean_residual:.3f}")
+    for _, run in df.nlargest(n_bis, "cout_final").iterrows():
+        bot_runs[method].append(
+            predict(X_test, run["theta0"], run["theta1"], run["theta2"])
+        )
+
+for i in range(n_bis):
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4), sharey=True)
+    fig.suptitle(f"Résidus — Meilleur run {i+1}", fontweight="bold")
+
+    for ax, method in zip(axes, method_list):
+        y_pred     = top_runs[method][i]
+        residuals  = y_true - y_pred
+        mean_resid = residuals.mean()
+
+        ax.scatter(y_pred, residuals, alpha=0.6, edgecolors="k", linewidths=0.3)
+        ax.axhline(mean_resid, color="darkred", linestyle=":", linewidth=1.5,
+                   label=f"résidu moyen = {mean_resid:.3f}")
+        ax.axhline(0, color="green", linestyle="--", linewidth=1.5)
+        ax.set_title(method)
+        ax.set_xlabel("Coût normalisé prédit")
+        ax.grid(True, alpha=0.3)
+        ax.legend(fontsize=7)
+
+    axes[0].set_ylabel("Résidus")
+    plt.tight_layout()
+    save_and_close(f"16_6a_residus_meilleur_{i+1}.png")
+
+for i in range(n_bis):
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4), sharey=True)
+    fig.suptitle(f"Résidus — Pire run {i+1}", fontweight="bold")
+
+    for ax, method in zip(axes, method_list):
+        y_pred     = bot_runs[method][i]
+        residuals  = y_true - y_pred
+        mean_resid = residuals.mean()
+
+        ax.scatter(y_pred, residuals, alpha=0.6, edgecolors="k", linewidths=0.3)
+        ax.axhline(mean_resid, color="darkred", linestyle=":", linewidth=1.5,
+                   label=f"résidu moyen = {mean_resid:.3f}")
         ax.axhline(0, color="green", linestyle="--", linewidth=1.5)
         ax.set_title(method)
         ax.set_xlabel("y_pred")
-        ax.grid(True)
+        ax.grid(True, alpha=0.3)
         ax.legend(fontsize=7)
 
-    axes[0].set_ylabel("résidus")
-
+    axes[0].set_ylabel("Résidus")
     plt.tight_layout()
-    plt.show()
-
-
-for i in range(n_bis):
-
-    fig, axes = plt.subplots(1, 3, figsize=(14, 4), sharey=True)
-    fig.suptitle(titles_worst[i])
-
-    for ax, method in zip(axes, methods):
-
-        y_pred = worst_preds[method][i]
-        residuals = y_true - y_pred
-        mean_residual = residuals.mean()
-
-        ax.scatter(
-            y_pred,
-            residuals,
-            alpha=0.6,
-            edgecolors="k",
-            linewidths=0.3
-        )
-        
-        ax.axhline(mean_residual, color="darkred", linestyle=":", linewidth=1.5,
-                   label=f"résidu moyen = {mean_residual:.3f}")
-        ax.axhline(0, color="green", linestyle="--", linewidth=1.5)
-        ax.set_title(method)
-        ax.set_xlabel("y_pred")
-        ax.grid(True)
-        ax.legend(fontsize=7)
-
-    axes[0].set_ylabel("résidus")
-
-    plt.tight_layout()
-    plt.show()
+    save_and_close(f"16_6b_residus_pire_{i+1}.png")
 
 # -----------------------------------------------------------
-# 15.5 — Points les plus difficiles par méthode
+# 16.7 — Points les plus difficiles par méthode
 # -----------------------------------------------------------
 fig, axes = plt.subplots(1, len(FILES), figsize=(14, 5), sharey=True)
 
 for ax, method in zip(axes, FILES.keys()):
-    hard = pivot_errors.sort_values(by=method, ascending=False).head(nb_affichage)
-
-    labels = [f"{i+1}" for i in range(len(hard))]
+    hard   = pivot_errors.sort_values(by=method, ascending=False).head(nb_affichage)
+    labels = [f"Pt {idx}" for idx in hard.index]
 
     ax.bar(labels, hard[method].values, color="tomato", edgecolor="k")
     ax.set_title(f"{method}")
-    ax.grid(True, axis="y")
+    ax.grid(True, axis="y", alpha=0.3)
 
-axes[0].set_ylabel("Erreur absolue")
-fig.suptitle(f"{nb_affichage} points les plus difficiles par méthode", fontsize=12)
-
+axes[0].set_ylabel("Erreur absolue (k$)")
+fig.suptitle(f"{nb_affichage} points les plus difficiles par méthode",
+             fontweight="bold", fontsize=12)
 plt.tight_layout()
+save_and_close("16_7_points_difficiles.png")
 
 # -----------------------------------------------------------
-# 15.6 — Points les plus simples par méthode
+# 16.8 — Points les plus simples par méthode
 # -----------------------------------------------------------
 fig, axes = plt.subplots(1, len(FILES), figsize=(14, 5), sharey=True)
 
 for ax, method in zip(axes, FILES.keys()):
-    easy = pivot_errors.sort_values(by=method, ascending=True).head(nb_affichage)
-
-    labels = [f"{i+1}" for i in range(len(easy))]
+    easy   = pivot_errors.sort_values(by=method, ascending=True).head(nb_affichage)
+    labels = [f"Pt {idx}" for idx in easy.index]
 
     ax.bar(labels, easy[method].values, color="mediumseagreen", edgecolor="k")
     ax.set_title(f"{method}")
-    ax.grid(True, axis="y")
+    ax.grid(True, axis="y", alpha=0.3)
 
 axes[0].set_ylabel("Erreur absolue")
-fig.suptitle(f"{nb_affichage} points les plus simples par méthode", fontsize=12)
-
+fig.suptitle(f"{nb_affichage} points les plus simples par méthode",
+             fontweight="bold", fontsize=12)
 plt.tight_layout()
+save_and_close("16_8_points_simples.png")
 
-plt.show()
+print("\n==============================")
+print("ANALYSE TERMINÉE")
+print("Toutes les figures ont été sauvegardées dans le dossier figures")
+print("==============================")
