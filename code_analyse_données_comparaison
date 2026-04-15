@@ -410,6 +410,28 @@ print(metrics_df.to_string())
 pivot_errors = error_df.pivot(index="point", columns="method", values="abs_error")
 pivot_errors["best_method"] = pivot_errors.idxmin(axis=1)
 
+# --- erreurs signées (différence réelle) ---
+signed_error_data = []
+
+for method in FILES.keys():
+    y_pred = predictions[method]
+    signed_errors = y_pred - y_true  # ⚠️ signe important
+
+    for i, err in enumerate(signed_errors):
+        signed_error_data.append({
+            "method": method,
+            "point": i,
+            "signed_error": err
+        })
+
+signed_error_df = pd.DataFrame(signed_error_data)
+
+pivot_errors_signed = signed_error_df.pivot(
+    index="point",
+    columns="method",
+    values="signed_error"
+)
+
 print("\n==============================")
 print("MEILLEURE METHODE PAR POINT")
 print("==============================")
@@ -660,40 +682,62 @@ for i in range(n_bis):
     save_and_close(f"15_6b_residus_pire_{i+1}.png")
 
 # -----------------------------------------------------------
-# 15.7 — Points les plus difficiles par méthode
+# 15.7 — Points les plus difficiles par méthode (avec signe)
 # -----------------------------------------------------------
 fig, axes = plt.subplots(1, len(FILES), figsize=(14, 5), sharey=True)
 
 for ax, method in zip(axes, FILES.keys()):
-    hard   = pivot_errors.sort_values(by=method, ascending=False).head(nb_affichage)
+    # Sélection basée sur erreur absolue
+    hard = pivot_errors.sort_values(by=method, ascending=False).head(nb_affichage)
+
+    # Récupérer les erreurs signées correspondantes
+    signed_vals = pivot_errors_signed.loc[hard.index, method].values
+
     labels = [f"Pt {idx}" for idx in hard.index]
 
-    ax.bar(labels, hard[method].values, color="tomato", edgecolor="k")
+    # Couleurs selon le signe
+    colors = ["red" if v > 0 else "mediumseagreen" for v in signed_vals]
+
+    ax.bar(labels, signed_vals, color=colors, edgecolor="k")
+
+    ax.axhline(0, color="black", linewidth=1)  # ligne zéro
     ax.set_title(f"{method}")
     ax.grid(True, axis="y", alpha=0.3)
 
-axes[0].set_ylabel("Erreur absolue")
-fig.suptitle(f"{nb_affichage} points les plus difficiles par méthode",
+axes[0].set_ylabel("Erreur")
+fig.suptitle(f"{nb_affichage} points les plus difficiles",
              fontweight="bold", fontsize=12)
+
 plt.tight_layout()
 save_and_close("15_7_points_difficiles.png")
 
 # -----------------------------------------------------------
-# 15.8 — Points les plus simples par méthode
+# 15.8 — Points les plus simples par méthode (avec signe)
 # -----------------------------------------------------------
 fig, axes = plt.subplots(1, len(FILES), figsize=(14, 5), sharey=True)
 
 for ax, method in zip(axes, FILES.keys()):
-    easy   = pivot_errors.sort_values(by=method, ascending=True).head(nb_affichage)
+    # Sélection basée sur erreur absolue
+    easy = pivot_errors.sort_values(by=method, ascending=True).head(nb_affichage)
+
+    # Erreurs signées
+    signed_vals = pivot_errors_signed.loc[easy.index, method].values
+
     labels = [f"Pt {idx}" for idx in easy.index]
 
-    ax.bar(labels, easy[method].values, color="mediumseagreen", edgecolor="k")
+    # Couleurs selon le signe
+    colors = ["red" if v > 0 else "mediumseagreen" for v in signed_vals]
+
+    ax.bar(labels, signed_vals, color=colors, edgecolor="k")
+
+    ax.axhline(0, color="black", linewidth=1)
     ax.set_title(f"{method}")
     ax.grid(True, axis="y", alpha=0.3)
 
-axes[0].set_ylabel("Erreur absolue")
-fig.suptitle(f"{nb_affichage} points les plus simples par méthode",
+axes[0].set_ylabel("Erreur")
+fig.suptitle(f"{nb_affichage} points les plus simples",
              fontweight="bold", fontsize=12)
+
 plt.tight_layout()
 save_and_close("15_8_points_simples.png")
 
