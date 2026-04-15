@@ -6,7 +6,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-
 # =========================================================
 # 1) PARAMETRES
 # =========================================================
@@ -30,7 +29,6 @@ os.makedirs("figures", exist_ok=True)
 # =========================================================
 # 2) FONCTIONS DE LECTURE ET DE TRAITEMENT
 # =========================================================
-
 def load_result_file(path, method_name):
     """
     Lit un fichier CSV de résultats d'entraînement
@@ -110,11 +108,9 @@ def save_and_close(filename):
     plt.savefig(f"figures/{filename}", dpi=150, bbox_inches="tight")
     plt.close()
 
-
 # =========================================================
 # 3) CHARGEMENT DES DONNEES
 # =========================================================
-
 datasets = {}
 
 for method, path in FILES.items():
@@ -197,7 +193,7 @@ plt.tight_layout()
 save_and_close("EDA_2_correlations_target.png")
 
 # -----------------------------------------------------------
-# EDA 3 — Scatter plots des 4 features les plus corrélées
+# EDA 3 — Scatter plots des 4 paramètres les plus corrélées
 # -----------------------------------------------------------
 top4_features = corr_target.abs().nlargest(4).index.tolist()
 
@@ -324,7 +320,6 @@ print(theta_stability)
 # =========================================================
 # 9) LIEN ENTRE cout_final ET NORME DES POIDS
 # =========================================================
-
 corr_rows = []
 
 for method, df in datasets.items():
@@ -440,9 +435,8 @@ for method in FILES.keys():
     print(easy[[method]])
 
 # =========================================================
-# 13) TABLEAUX APLATIS DES THETAS (EXPORT)
+# 13) TABLEAUX APLATIS DES THETAS
 # =========================================================
-
 for method, df in datasets.items():
     for theta_name in THETA_COLUMNS:
         flat = flatten_theta_column(df, theta_name)
@@ -487,7 +481,7 @@ plt.tight_layout()
 save_and_close("16_1_violin_cout_final.png")
 
 # -----------------------------------------------------------
-# 15.2 — Évolution du coût selon la seed
+# 15.2 — Évolution du coût selon la run
 # -----------------------------------------------------------
 plt.figure(figsize=(9, 5))
 for method, df in datasets.items():
@@ -589,7 +583,7 @@ for col_idx, method in enumerate(predictions):
     if col_idx == 0:
         ax_hist.set_ylabel("Densité")
 
-    # --- ligne 2 : résidus vs y_pred (graphique classique) ---
+    # --- ligne 2 : résidus vs y_pred 
     ax_scat = axes[1, col_idx]
     ax_scat.scatter(y_pred, residuals, alpha=0.6, s=25,
                     edgecolors="k", linewidths=0.2, color="steelblue")
