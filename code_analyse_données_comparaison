@@ -6,7 +6,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-from scipy.stats import wilcoxon
 
 # =========================================================
 # 1) PARAMETRES
@@ -380,41 +379,7 @@ print("QUANTILES (10% et 90%)")
 print("==============================")
 print(quantiles)
 
-# =========================================================
-# 12) TESTS STATISTIQUES DE WILCOXON (PAIRWISE)
-# =========================================================
-
 method_list = list(FILES.keys())
-
-print("\n==============================")
-print("TESTS DE WILCOXON (comparaisons par paires)")
-print("Seuil de significativité : α = 0.05")
-print("==============================")
-
-wilcoxon_rows = []
-
-for i in range(len(method_list)):
-    for j in range(i + 1, len(method_list)):
-        m1, m2 = method_list[i], method_list[j]
-        costs1 = datasets[m1]["cout_final"].values
-        costs2 = datasets[m2]["cout_final"].values
-
-        stat, p = wilcoxon(costs1, costs2)
-        significant = p < 0.05
-
-        print(
-            f"  {m1} vs {m2} : W = {stat:.2f}, p = {p:.4f}  "
-            f"{'→ différence SIGNIFICATIVE ✅' if significant else '→ différence non significative ❌'}"
-        )
-
-        wilcoxon_rows.append({
-            "comparaison":  f"{m1} vs {m2}",
-            "W":            stat,
-            "p_value":      p,
-            "significatif": significant
-        })
-
-wilcoxon_table = pd.DataFrame(wilcoxon_rows)
 
 # =========================================================
 # 13) COMPARAISON PAR POINT (DONNEES DE TEST)
@@ -498,7 +463,6 @@ seed_comparison.to_csv("comparaison_par_seed.csv")
 theta_run_summary.to_csv("resume_thetas_par_run.csv", index=False)
 theta_stability.to_csv("stabilite_thetas_par_methode.csv", index=False)
 correlation_table.to_csv("correlations_cout_normes.csv", index=False)
-wilcoxon_table.to_csv("tests_wilcoxon.csv", index=False)
 metrics_df.to_csv("metriques_test.csv")
 
 # =========================================================
