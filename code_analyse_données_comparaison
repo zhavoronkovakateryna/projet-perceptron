@@ -371,7 +371,6 @@ print(bias_variance)
 # =========================================================
 # 11) QUANTILES (ROBUSTESSE AUX EXTREMES)
 # =========================================================
-
 quantiles = all_runs.groupby("method")["cout_final"].quantile([0.1, 0.9]).unstack()
 
 print("\n==============================")
@@ -382,9 +381,8 @@ print(quantiles)
 method_list = list(FILES.keys())
 
 # =========================================================
-# 13) COMPARAISON PAR POINT (DONNEES DE TEST)
+# 12) COMPARAISON PAR POINT (DONNEES DE TEST)
 # =========================================================
-
 error_data   = []
 metrics_rows = []
 predictions  = {}
@@ -442,7 +440,7 @@ for method in FILES.keys():
     print(easy[[method]])
 
 # =========================================================
-# 14) TABLEAUX APLATIS DES THETAS (EXPORT)
+# 13) TABLEAUX APLATIS DES THETAS (EXPORT)
 # =========================================================
 
 for method, df in datasets.items():
@@ -454,7 +452,7 @@ for method, df in datasets.items():
         flat.to_csv(f"{theta_name.lower()}_aplati_{method.lower()}.csv", index=False)
 
 # =========================================================
-# 15) EXPORT DES TABLEAUX DE SYNTHESE
+# 14) EXPORT DES TABLEAUX DE SYNTHESE
 # =========================================================
 
 cost_stats.to_csv("stats_cout_par_methode.csv")
@@ -470,7 +468,7 @@ metrics_df.to_csv("metriques_test.csv")
 # =========================================================
 
 # -----------------------------------------------------------
-# 16.1 — Violin plot des coûts finaux par méthode
+# 15.1 — Violin plot des coûts finaux par méthode
 # -----------------------------------------------------------
 plt.figure(figsize=(8, 5))
 ax = sns.violinplot(
@@ -489,7 +487,7 @@ plt.tight_layout()
 save_and_close("16_1_violin_cout_final.png")
 
 # -----------------------------------------------------------
-# 16.2 — Évolution du coût selon la seed
+# 15.2 — Évolution du coût selon la seed
 # -----------------------------------------------------------
 plt.figure(figsize=(9, 5))
 for method, df in datasets.items():
@@ -504,7 +502,7 @@ plt.tight_layout()
 save_and_close("16_2_cout_par_seed.png")
 
 # -----------------------------------------------------------
-# 16.3 — Coût final vs norme totale des theta
+# 15.3 — Coût final vs norme totale des theta
 # -----------------------------------------------------------
 plt.figure(figsize=(8, 5))
 for method, df in datasets.items():
@@ -518,7 +516,7 @@ plt.tight_layout()
 save_and_close("16_3_cout_vs_norme_theta.png")
 
 # -----------------------------------------------------------
-# 16.4 — Prédit vs Réel (meilleur run par méthode)
+# 15.4 — Prédit vs Réel (meilleur run par méthode)
 # -----------------------------------------------------------
 fig, axes = plt.subplots(1, len(FILES), figsize=(14, 4), sharey=True)
 
@@ -550,7 +548,7 @@ plt.tight_layout()
 save_and_close("16_4_predit_vs_reel.png")
 
 # -----------------------------------------------------------
-# 16.5 — Distribution des résidus (histogramme + KDE)
+# 15.5 — Distribution des résidus (histogramme + KDE)
 # -----------------------------------------------------------
 fig, axes = plt.subplots(2, len(FILES), figsize=(14, 8))
 
@@ -610,7 +608,7 @@ plt.tight_layout()
 save_and_close("16_5_distribution_residus.png")
 
 # -----------------------------------------------------------
-# 16.6 — Graphiques des résidus (meilleurs et pires runs)
+# 15.6 — Graphiques des résidus (meilleurs et pires runs)
 # -----------------------------------------------------------
 n_bis    = 2
 top_runs  = {m: [] for m in method_list}
@@ -671,7 +669,7 @@ for i in range(n_bis):
     save_and_close(f"16_6b_residus_pire_{i+1}.png")
 
 # -----------------------------------------------------------
-# 16.7 — Points les plus difficiles par méthode
+# 15.7 — Points les plus difficiles par méthode
 # -----------------------------------------------------------
 fig, axes = plt.subplots(1, len(FILES), figsize=(14, 5), sharey=True)
 
@@ -690,7 +688,7 @@ plt.tight_layout()
 save_and_close("16_7_points_difficiles.png")
 
 # -----------------------------------------------------------
-# 16.8 — Points les plus simples par méthode
+# 15.8 — Points les plus simples par méthode
 # -----------------------------------------------------------
 fig, axes = plt.subplots(1, len(FILES), figsize=(14, 5), sharey=True)
 
