@@ -226,7 +226,7 @@ cost_stats = (
 )
 
 print("\n==============================")
-print("STATISTIQUES SUR cout_final PAR METHODE")
+print("STATISTIQUES SUR COUT FINAL PAR METHODE")
 print("==============================")
 print(cost_stats)
 
@@ -297,7 +297,6 @@ print(theta_run_summary.head())
 # =========================================================
 # 8) STABILITE DES THETAS ENTRE LES RUNS
 # =========================================================
-
 stability_rows = []
 
 for method, df in datasets.items():
@@ -318,7 +317,7 @@ print("==============================")
 print(theta_stability)
 
 # =========================================================
-# 9) LIEN ENTRE cout_final ET NORME DES POIDS
+# 9) LIEN ENTRE COUT FINAL ET NORME DES POIDS
 # =========================================================
 corr_rows = []
 
@@ -340,14 +339,13 @@ for method, df in datasets.items():
 correlation_table = pd.DataFrame(corr_rows)
 
 print("\n==============================")
-print("CORRELATIONS ENTRE cout_final ET NORMES DES THETAS")
+print("CORRELATIONS ENTRE COUT FINAL ET NORMES DES THETAS")
 print("==============================")
 print(correlation_table)
 
 # =========================================================
 # 10) BIAIS / VARIANCE ET ROBUSTESSE
 # =========================================================
-
 mean_cost = all_runs.groupby("method")["cout_final"].mean()
 variance   = all_runs.groupby("method")["cout_final"].var()
 cv         = all_runs.groupby("method")["cout_final"].std() / mean_cost
@@ -355,7 +353,7 @@ cv         = all_runs.groupby("method")["cout_final"].std() / mean_cost
 bias_variance = pd.DataFrame({
     "cout_moyen (proxy biais)": mean_cost,
     "variance":                  variance,
-    "CV (%)":                    cv * 100
+    "CV = écart-type/moyenne (%)":   cv * 100
 })
 
 print("\n==============================")
@@ -448,7 +446,6 @@ for method, df in datasets.items():
 # =========================================================
 # 14) EXPORT DES TABLEAUX DE SYNTHESE
 # =========================================================
-
 cost_stats.to_csv("stats_cout_par_methode.csv")
 best_method_runs.to_csv("meilleurs_runs_par_methode.csv", index=False)
 seed_comparison.to_csv("comparaison_par_seed.csv")
@@ -458,7 +455,7 @@ correlation_table.to_csv("correlations_cout_normes.csv", index=False)
 metrics_df.to_csv("metriques_test.csv")
 
 # =========================================================
-# 16) GRAPHIQUES
+# 15) GRAPHIQUES
 # =========================================================
 
 # -----------------------------------------------------------
@@ -478,7 +475,7 @@ plt.xlabel("Méthode")
 plt.ylabel("Coût final")
 plt.grid(True, axis="y", alpha=0.3)
 plt.tight_layout()
-save_and_close("16_1_violin_cout_final.png")
+save_and_close("15_1_violin_cout_final.png")
 
 # -----------------------------------------------------------
 # 15.2 — Évolution du coût selon la run
@@ -493,7 +490,7 @@ plt.ylabel("Coût final")
 plt.legend()
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
-save_and_close("16_2_cout_par_seed.png")
+save_and_close("15_2_cout_par_seed.png")
 
 # -----------------------------------------------------------
 # 15.3 — Coût final vs norme totale des theta
@@ -507,7 +504,7 @@ plt.ylabel("Coût final")
 plt.legend()
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
-save_and_close("16_3_cout_vs_norme_theta.png")
+save_and_close("15_3_cout_vs_norme_theta.png")
 
 # -----------------------------------------------------------
 # 15.4 — Prédit vs Réel (meilleur run par méthode)
@@ -539,7 +536,7 @@ for ax, method in zip(axes, predictions):
 axes[0].set_ylabel("Coût normalisé prédit")
 plt.suptitle("Prédit vs Réel — meilleur run par méthode", fontweight="bold", fontsize=13)
 plt.tight_layout()
-save_and_close("16_4_predit_vs_reel.png")
+save_and_close("15_4_predit_vs_reel.png")
 
 # -----------------------------------------------------------
 # 15.5 — Distribution des résidus (histogramme + KDE)
@@ -599,7 +596,7 @@ for col_idx, method in enumerate(predictions):
 plt.suptitle("Distribution et analyse des résidus — meilleur run par méthode",
              fontweight="bold", fontsize=13)
 plt.tight_layout()
-save_and_close("16_5_distribution_residus.png")
+save_and_close("15_5_distribution_residus.png")
 
 # -----------------------------------------------------------
 # 15.6 — Graphiques des résidus (meilleurs et pires runs)
@@ -638,7 +635,7 @@ for i in range(n_bis):
 
     axes[0].set_ylabel("Résidus")
     plt.tight_layout()
-    save_and_close(f"16_6a_residus_meilleur_{i+1}.png")
+    save_and_close(f"15_6a_residus_meilleur_{i+1}.png")
 
 for i in range(n_bis):
     fig, axes = plt.subplots(1, 3, figsize=(14, 4), sharey=True)
@@ -660,7 +657,7 @@ for i in range(n_bis):
 
     axes[0].set_ylabel("Résidus")
     plt.tight_layout()
-    save_and_close(f"16_6b_residus_pire_{i+1}.png")
+    save_and_close(f"15_6b_residus_pire_{i+1}.png")
 
 # -----------------------------------------------------------
 # 15.7 — Points les plus difficiles par méthode
@@ -675,11 +672,11 @@ for ax, method in zip(axes, FILES.keys()):
     ax.set_title(f"{method}")
     ax.grid(True, axis="y", alpha=0.3)
 
-axes[0].set_ylabel("Erreur absolue (k$)")
+axes[0].set_ylabel("Erreur absolue")
 fig.suptitle(f"{nb_affichage} points les plus difficiles par méthode",
              fontweight="bold", fontsize=12)
 plt.tight_layout()
-save_and_close("16_7_points_difficiles.png")
+save_and_close("15_7_points_difficiles.png")
 
 # -----------------------------------------------------------
 # 15.8 — Points les plus simples par méthode
@@ -698,7 +695,7 @@ axes[0].set_ylabel("Erreur absolue")
 fig.suptitle(f"{nb_affichage} points les plus simples par méthode",
              fontweight="bold", fontsize=12)
 plt.tight_layout()
-save_and_close("16_8_points_simples.png")
+save_and_close("15_8_points_simples.png")
 
 print("\n==============================")
 print("ANALYSE TERMINÉE")
