@@ -415,7 +415,7 @@ signed_error_data = []
 
 for method in FILES.keys():
     y_pred = predictions[method]
-    signed_errors = y_pred - y_true  # ⚠️ signe important
+    signed_errors = y_pred - y_true 
 
     for i, err in enumerate(signed_errors):
         signed_error_data.append({
@@ -438,9 +438,9 @@ print("==============================")
 print(pivot_errors["best_method"].value_counts())
 
 print("\n==============================")
-print("ERREUR ABSOLUE MOYENNE PAR METHODE (point par point)")
+print("ERREUR MOYENNE PAR METHODE (point par point)")
 print("==============================")
-print(pivot_errors.drop(columns="best_method").mean())
+print(pivot_errors_signed.mean())
 
 nb_affichage = 5
 
@@ -506,7 +506,7 @@ plt.figure(figsize=(9, 5))
 for method, df in datasets.items():
     df_sorted = df.sort_values("seed")
     plt.plot(df_sorted["seed"], df_sorted["cout_final"], marker="o", label=method)
-plt.title("Coût final selon la seed", fontweight="bold")
+plt.title("Coût final selon l'initialisation", fontweight="bold")
 plt.xlabel("Run")
 plt.ylabel("Coût final")
 plt.legend()
@@ -609,13 +609,13 @@ for col_idx, method in enumerate(predictions):
     ax_scat.axhline(0, color="green", linestyle="--", linewidth=1.5)
     ax_scat.axhline(residuals.mean(), color="darkred", linestyle=":",
                     linewidth=1.5, label=f"moy={residuals.mean():.3f}")
-    ax_scat.set_xlabel("Coût normalisé prédit")
+    ax_scat.set_xlabel("Coût prédit")
     ax_scat.grid(True, alpha=0.3)
     ax_scat.legend(fontsize=7)
     if col_idx == 0:
         ax_scat.set_ylabel("Résidus")
 
-plt.suptitle("Distribution et analyse des résidus — meilleur run par méthode",
+plt.suptitle("Distribution et analyse des résidus",
              fontweight="bold", fontsize=13)
 plt.tight_layout()
 save_and_close("15_5_distribution_residus.png")
@@ -651,7 +651,7 @@ for i in range(n_bis):
                    label=f"résidu moyen = {mean_resid:.3f}")
         ax.axhline(0, color="green", linestyle="--", linewidth=1.5)
         ax.set_title(method)
-        ax.set_xlabel("Coût normalisé prédit")
+        ax.set_xlabel("Coût prédit")
         ax.grid(True, alpha=0.3)
         ax.legend(fontsize=7)
 
@@ -673,7 +673,7 @@ for i in range(n_bis):
                    label=f"résidu moyen = {mean_resid:.3f}")
         ax.axhline(0, color="green", linestyle="--", linewidth=1.5)
         ax.set_title(method)
-        ax.set_xlabel("y_pred")
+        ax.set_xlabel("Coût prédit")
         ax.grid(True, alpha=0.3)
         ax.legend(fontsize=7)
 
@@ -682,7 +682,7 @@ for i in range(n_bis):
     save_and_close(f"15_6b_residus_pire_{i+1}.png")
 
 # -----------------------------------------------------------
-# 15.7 — Points les plus difficiles par méthode (avec signe)
+# 15.7 — Points les plus difficiles par méthode 
 # -----------------------------------------------------------
 fig, axes = plt.subplots(1, len(FILES), figsize=(14, 5), sharey=True)
 
@@ -705,14 +705,14 @@ for ax, method in zip(axes, FILES.keys()):
     ax.grid(True, axis="y", alpha=0.3)
 
 axes[0].set_ylabel("Erreur")
-fig.suptitle(f"{nb_affichage} points les plus difficiles",
+fig.suptitle(f"{nb_affichage} points aux erreurs les plus importantes",
              fontweight="bold", fontsize=12)
 
 plt.tight_layout()
 save_and_close("15_7_points_difficiles.png")
 
 # -----------------------------------------------------------
-# 15.8 — Points les plus simples par méthode (avec signe)
+# 15.8 — Points les plus simples par méthode 
 # -----------------------------------------------------------
 fig, axes = plt.subplots(1, len(FILES), figsize=(14, 5), sharey=True)
 
@@ -735,7 +735,7 @@ for ax, method in zip(axes, FILES.keys()):
     ax.grid(True, axis="y", alpha=0.3)
 
 axes[0].set_ylabel("Erreur")
-fig.suptitle(f"{nb_affichage} points les plus simples",
+fig.suptitle(f"{nb_affichage} points aux erreurs les moins importantes",
              fontweight="bold", fontsize=12)
 
 plt.tight_layout()
