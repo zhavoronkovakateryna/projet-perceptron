@@ -696,7 +696,7 @@ for ax, method in zip(axes, FILES.keys()):
     labels = [f"Pt {idx}" for idx in hard.index]
 
     # Couleurs selon le signe
-    colors = ["red" if v > 0 else "mediumseagreen" for v in signed_vals]
+    colors = ["#c0392b" if v > 0 else "#2980b9" for v in signed_vals]
 
     ax.bar(labels, signed_vals, color=colors, edgecolor="k")
 
@@ -726,7 +726,7 @@ for ax, method in zip(axes, FILES.keys()):
     labels = [f"Pt {idx}" for idx in easy.index]
 
     # Couleurs selon le signe
-    colors = ["red" if v > 0 else "mediumseagreen" for v in signed_vals]
+    colors = ["#c0392b" if v > 0 else "#2980b9" for v in signed_vals]
 
     ax.bar(labels, signed_vals, color=colors, edgecolor="k")
 
