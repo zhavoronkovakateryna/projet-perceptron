@@ -1,0 +1,701 @@
+# -*- coding: utf-8 -*-
+import os
+import ast
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+
+# =========================================================
+# 1) PARAMETRES
+# =========================================================
+
+FILES = {
+    "GD": "fusion_triee_gd.csv",
+    "EGD": "fusion_triee_egd.csv",
+    "LCGD": "fusion_triee_lcgd.csv",
+}
+
+THETA_COLUMNS = ["theta0", "theta1", "theta2"]
+
+# Encodage ordinal supposé : cut(0-4), color(0-6), clarity(0-7)
+FEATURE_NAMES = [
+    "carat", "cut", "color", "clarity",
+    "depth", "table", "x", "y", "z"
+]
+
+TARGET_NAME = "price"
+
+os.makedirs("figures", exist_ok=True)
+
+# =========================================================
+# 2) FONCTIONS DE LECTURE ET DE TRAITEMENT
+# =========================================================
+def load_result_file(path, method_name):
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Fichier introuvable : {path}")
+
+    df = pd.read_csv(
+        path,
+        converters={col: ast.literal_eval for col in THETA_COLUMNS}
+    )
+
+    for col in THETA_COLUMNS:
+        df[col] = df[col].apply(np.array)
+
+    df["method"] = method_name
+    return df
+
+
+def add_theta_features(df):
+    df = df.copy()
+
+    for col in THETA_COLUMNS:
+        df[f"{col}_norm"]    = df[col].apply(lambda x: np.linalg.norm(x))
+        df[f"{col}_mean"]    = df[col].apply(np.mean)
+        df[f"{col}_std"]     = df[col].apply(np.std)
+        df[f"{col}_min"]     = df[col].apply(np.min)
+        df[f"{col}_max"]     = df[col].apply(np.max)
+        df[f"{col}_absmean"] = df[col].apply(lambda x: np.mean(np.abs(x)))
+
+        mean_theta = np.mean(np.stack(df[col].to_numpy()), axis=0)
+        df[f"{col}_dist_to_mean"] = df[col].apply(
+            lambda x, m=mean_theta: np.linalg.norm(x - m)
+        )
+
+    df["theta_total_norm"] = np.sqrt(
+        df["theta0_norm"]**2 + df["theta1_norm"]**2 + df["theta2_norm"]**2
+    )
+
+    return df
+
+
+def flatten_theta_column(df, theta_name):
+    flat = pd.DataFrame([x.flatten() for x in df[theta_name]])
+    flat.columns = [f"{theta_name}_{i}" for i in range(flat.shape[1])]
+    return flat
+
+
+def predict(X, theta0, theta1, theta2):
+    """
+    Prédiction MLP à 2 couches cachées (tanh, tanh, linéaire).
+    Convention : biais inclus en dernière colonne des thetas.
+    """
+    z1 = X @ theta0.T
+    a1 = np.tanh(z1)
+    a1b = np.hstack([a1, np.ones((a1.shape[0], 1))])
+
+    z2 = a1b @ theta1.T
+    a2 = np.tanh(z2)
+    a2b = np.hstack([a2, np.ones((a2.shape[0], 1))])
+
+    z3 = a2b @ theta2.T
+    return z3.flatten()
+
+
+def save_and_close(filename):
+    plt.savefig(f"figures/{filename}", dpi=150, bbox_inches="tight")
+    plt.close()
+
+# =========================================================
+# 3) CHARGEMENT DES DONNEES
+# =========================================================
+datasets = {}
+
+for method, path in FILES.items():
+    df = load_result_file(path, method)
+    df = add_theta_features(df)
+    datasets[method] = df
+
+all_runs = pd.concat(datasets.values(), ignore_index=True)
+
+print("\n==============================")
+print("APERÇU DES DONNÉES")
+print("==============================")
+print(all_runs[["method", "run", "seed", "cout_final"]].head())
+
+# =========================================================
+# 4) SECTION EDA — EXPLORATION DES DONNÉES DE TEST
+# =========================================================
+
+print("\n==============================")
+print("EDA — EXPLORATION DES DONNÉES")
+print("==============================")
+
+X_test_raw = pd.read_csv("diamonds_inputs_test.csv", header=None).values
+y_true     = pd.read_csv("diamonds_outputs_test.csv", header=None).values.flatten()
+
+# Ajout du biais pour la prédiction
+X_test = np.hstack([X_test_raw, np.ones((X_test_raw.shape[0], 1))])
+
+# DataFrame lisible pour l'EDA
+# Ajuste si ton encodage produit plus/moins de colonnes que FEATURE_NAMES
+n_cols = X_test_raw.shape[1]
+feat_labels = FEATURE_NAMES[:n_cols] if n_cols <= len(FEATURE_NAMES) else \
+              FEATURE_NAMES + [f"feat_{i}" for i in range(n_cols - len(FEATURE_NAMES))]
+
+df_diamonds = pd.DataFrame(X_test_raw, columns=feat_labels)
+df_diamonds[TARGET_NAME] = y_true
+
+print("\n--- Statistiques descriptives ---")
+print(df_diamonds.describe().round(3))
+
+print(f"\n--- Jeu de test : {df_diamonds.shape[0]} observations, "
+      f"{df_diamonds.shape[1] - 1} features ---")
+print(f"Cible {TARGET_NAME} : min={y_true.min():.2f}, max={y_true.max():.2f}, "
+      f"moy={y_true.mean():.2f}, std={y_true.std():.2f}")
+
+# -----------------------------------------------------------
+# EDA 1 — Distribution de la cible price
+# -----------------------------------------------------------
+fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+
+axes[0].hist(y_true, bins=30, color="goldenrod", edgecolor="white", linewidth=0.8)
+axes[0].set_title(f"Distribution de {TARGET_NAME} (cible)")
+axes[0].set_xlabel("Prix ")
+axes[0].set_ylabel("Fréquence")
+axes[0].axvline(y_true.mean(), color="red", linestyle="--",
+                label=f"Moyenne = {y_true.mean():.0f}")
+axes[0].axvline(np.median(y_true), color="orange", linestyle=":",
+                label=f"Médiane = {np.median(y_true):.0f}")
+axes[0].legend()
+axes[0].grid(True, alpha=0.3)
+
+sns.boxplot(y=y_true, ax=axes[1], color="goldenrod", width=0.4)
+axes[1].set_title(f"Boîte à moustaches — {TARGET_NAME}")
+axes[1].set_ylabel("Prix ")
+axes[1].grid(True, alpha=0.3)
+
+plt.suptitle(f"EDA — Variable cible {TARGET_NAME}", fontsize=13, fontweight="bold")
+plt.tight_layout()
+save_and_close("EDA_1_distribution_cible.png")
+
+# -----------------------------------------------------------
+# EDA 2 — Top corrélations avec price (barplot)
+# -----------------------------------------------------------
+corr_target = df_diamonds.corr()[TARGET_NAME].drop(TARGET_NAME).sort_values(
+    key=abs, ascending=False
+)
+
+plt.figure(figsize=(9, 4))
+colors = ["tomato" if c < 0 else "goldenrod" for c in corr_target.values]
+plt.bar(corr_target.index, corr_target.values, color=colors, edgecolor="k", linewidth=0.5)
+plt.axhline(0, color="black", linewidth=0.8)
+plt.title(f"Corrélation de chaque paramètre avec {TARGET_NAME}", fontweight="bold")
+plt.ylabel("Corrélation de Pearson")
+plt.xlabel("Paramètre")
+plt.xticks(rotation=30, ha="right")
+plt.grid(True, axis="y", alpha=0.3)
+plt.tight_layout()
+save_and_close("EDA_2_correlations_target.png")
+
+# -----------------------------------------------------------
+# EDA 3 — Scatter plots des 4 paramètres les plus corrélés
+# -----------------------------------------------------------
+top4_features = corr_target.abs().nlargest(4).index.tolist()
+
+fig, axes = plt.subplots(1, 4, figsize=(16, 4))
+for ax, feat in zip(axes, top4_features):
+    ax.scatter(df_diamonds[feat], y_true, alpha=0.4, s=10,
+               color="goldenrod", edgecolors="k", linewidths=0.2)
+    z = np.polyfit(df_diamonds[feat], y_true, 1)
+    p = np.poly1d(z)
+    xs = np.linspace(df_diamonds[feat].min(), df_diamonds[feat].max(), 100)
+    ax.plot(xs, p(xs), "r--", linewidth=1.5)
+    r = corr_target[feat]
+    ax.set_title(f"{feat}\n(r = {r:.2f})", fontsize=10)
+    ax.set_xlabel(feat)
+    ax.grid(True, alpha=0.3)
+
+axes[0].set_ylabel(f"{TARGET_NAME} ")
+plt.suptitle(f"EDA — Top 4 paramètres corrélés avec {TARGET_NAME}", fontweight="bold")
+plt.tight_layout()
+save_and_close("EDA_3_scatter_top4.png")
+
+# =========================================================
+# 5) COMPARAISON DES METHODES SUR LE COUT FINAL
+# =========================================================
+
+cost_stats = (
+    all_runs.groupby("method")["cout_final"]
+    .agg(["count", "mean", "std", "min", "median", "max"])
+    .sort_values("mean")
+)
+
+print("\n==============================")
+print("STATISTIQUES SUR COUT FINAL PAR METHODE")
+print("==============================")
+print(cost_stats)
+
+best_method_runs = all_runs.loc[
+    all_runs.groupby("method")["cout_final"].idxmin(),
+    ["method", "run", "seed", "cout_final"]
+].sort_values("cout_final")
+
+print("\n==============================")
+print("MEILLEUR RUN PAR METHODE")
+print("==============================")
+print(best_method_runs)
+
+best_global = all_runs.loc[
+    all_runs["cout_final"].idxmin(),
+    ["method", "run", "seed", "cout_final"]
+]
+
+print("\n==============================")
+print("MEILLEUR RUN GLOBAL")
+print("==============================")
+print(best_global)
+
+# =========================================================
+# 6) COMPARAISON SELON LA SEED
+# =========================================================
+
+seed_comparison = all_runs.pivot_table(
+    index="seed",
+    columns="method",
+    values="cout_final"
+)
+seed_comparison["best_method"] = seed_comparison.idxmin(axis=1)
+
+print("\n==============================")
+print("COMPARAISON PAR SEED")
+print("==============================")
+print(seed_comparison)
+
+wins_by_method = seed_comparison["best_method"].value_counts()
+
+print("\n==============================")
+print("NOMBRE DE FOIS OÙ CHAQUE METHODE EST LA MEILLEURE")
+print("==============================")
+print(wins_by_method)
+
+# =========================================================
+# 7) STATISTIQUES PAR RUN SUR LES THETAS
+# =========================================================
+
+theta_run_summary = all_runs[[
+    "method", "run", "seed", "cout_final",
+    "theta0_norm", "theta1_norm", "theta2_norm", "theta_total_norm",
+    "theta0_mean", "theta1_mean", "theta2_mean",
+    "theta0_std",  "theta1_std",  "theta2_std",
+    "theta0_min",  "theta1_min",  "theta2_min",
+    "theta0_max",  "theta1_max",  "theta2_max",
+    "theta0_absmean", "theta1_absmean", "theta2_absmean",
+    "theta0_dist_to_mean", "theta1_dist_to_mean", "theta2_dist_to_mean"
+]]
+
+print("\n==============================")
+print("RÉSUMÉ DES THETAS PAR RUN")
+print("==============================")
+print(theta_run_summary.head())
+
+# =========================================================
+# 8) STABILITE DES THETAS ENTRE LES RUNS
+# =========================================================
+stability_rows = []
+
+for method, df in datasets.items():
+    row = {"method": method}
+    for theta_name in THETA_COLUMNS:
+        stack = np.stack(df[theta_name].to_numpy())
+        coeff_std = stack.std(axis=0)
+        row[f"{theta_name}_coeff_std_mean"] = coeff_std.mean()
+        row[f"{theta_name}_coeff_std_max"]  = coeff_std.max()
+    stability_rows.append(row)
+
+theta_stability = pd.DataFrame(stability_rows)
+
+print("\n==============================")
+print("STABILITÉ DES THETAS PAR METHODE")
+print("==============================")
+print(theta_stability)
+
+# =========================================================
+# 9) LIEN ENTRE COUT FINAL ET NORME DES POIDS
+# =========================================================
+corr_rows = []
+
+for method, df in datasets.items():
+    corr = df[[
+        "cout_final",
+        "theta0_norm", "theta1_norm", "theta2_norm",
+        "theta_total_norm"
+    ]].corr()["cout_final"]
+
+    corr_rows.append({
+        "method": method,
+        "corr_cout_theta0_norm":      corr["theta0_norm"],
+        "corr_cout_theta1_norm":      corr["theta1_norm"],
+        "corr_cout_theta2_norm":      corr["theta2_norm"],
+        "corr_cout_theta_total_norm": corr["theta_total_norm"],
+    })
+
+correlation_table = pd.DataFrame(corr_rows)
+
+print("\n==============================")
+print("CORRELATIONS ENTRE COUT FINAL ET NORMES DES THETAS")
+print("==============================")
+print(correlation_table)
+
+# =========================================================
+# 10) BIAIS / VARIANCE ET ROBUSTESSE
+# =========================================================
+mean_cost = all_runs.groupby("method")["cout_final"].mean()
+variance  = all_runs.groupby("method")["cout_final"].var()
+cv        = all_runs.groupby("method")["cout_final"].std() / mean_cost
+
+bias_variance = pd.DataFrame({
+    "cout_moyen (proxy biais)":    mean_cost,
+    "variance":                    variance,
+    "CV = écart-type/moyenne (%)": cv * 100
+})
+
+print("\n==============================")
+print("BIAIS (proxy) / VARIANCE / ROBUSTESSE")
+print("==============================")
+print(bias_variance)
+
+# =========================================================
+# 11) QUANTILES (ROBUSTESSE AUX EXTREMES)
+# =========================================================
+quantiles = all_runs.groupby("method")["cout_final"].quantile([0.1, 0.9]).unstack()
+
+print("\n==============================")
+print("QUANTILES (10% et 90%)")
+print("==============================")
+print(quantiles)
+
+method_list = list(FILES.keys())
+
+# =========================================================
+# 12) COMPARAISON PAR POINT (DONNEES DE TEST)
+# =========================================================
+error_data   = []
+metrics_rows = []
+predictions  = {}
+
+for method, df in datasets.items():
+    best_idx = df["cout_final"].idxmin()
+    best_run = df.loc[best_idx]
+
+    y_pred = predict(X_test, best_run["theta0"], best_run["theta1"], best_run["theta2"])
+    predictions[method] = y_pred
+
+    abs_error = np.abs(y_pred - y_true)
+    for i, err in enumerate(abs_error):
+        error_data.append({"method": method, "point": i, "abs_error": err})
+
+    metrics_rows.append({
+        "Méthode": method,
+        "MSE":     mean_squared_error(y_true, y_pred),
+        "RMSE":    np.sqrt(mean_squared_error(y_true, y_pred)),
+        "MAE":     mean_absolute_error(y_true, y_pred),
+        "R²":      1 - np.sum((y_true - y_pred)**2) / np.sum((y_true - y_true.mean())**2)
+    })
+
+error_df   = pd.DataFrame(error_data)
+metrics_df = pd.DataFrame(metrics_rows).set_index("Méthode")
+
+print("\n==============================")
+print("MÉTRIQUES DE PERFORMANCE SUR LE JEU DE TEST (meilleur run)")
+print("==============================")
+print(metrics_df.to_string())
+
+pivot_errors = error_df.pivot(index="point", columns="method", values="abs_error")
+pivot_errors["best_method"] = pivot_errors.idxmin(axis=1)
+
+signed_error_data = []
+for method in FILES.keys():
+    y_pred = predictions[method]
+    signed_errors = y_pred - y_true
+    for i, err in enumerate(signed_errors):
+        signed_error_data.append({"method": method, "point": i, "signed_error": err})
+
+signed_error_df   = pd.DataFrame(signed_error_data)
+pivot_errors_signed = signed_error_df.pivot(
+    index="point", columns="method", values="signed_error"
+)
+
+print("\n==============================")
+print("MEILLEURE METHODE PAR POINT")
+print("==============================")
+print(pivot_errors["best_method"].value_counts())
+
+print("\n==============================")
+print("ERREUR MOYENNE PAR METHODE (point par point)")
+print("==============================")
+print(pivot_errors_signed.mean())
+
+nb_affichage = 5
+
+for method in FILES.keys():
+    print(f"\n=== POINTS LES PLUS DIFFICILES — {method} ===")
+    hard = pivot_errors.sort_values(by=method, ascending=False).head(nb_affichage)
+    print(hard[[method]])
+
+for method in FILES.keys():
+    print(f"\n=== POINTS LES PLUS SIMPLES — {method} ===")
+    easy = pivot_errors.sort_values(by=method, ascending=True).head(nb_affichage)
+    print(easy[[method]])
+
+# =========================================================
+# 13) TABLEAUX APLATIS DES THETAS
+# =========================================================
+for method, df in datasets.items():
+    for theta_name in THETA_COLUMNS:
+        flat = flatten_theta_column(df, theta_name)
+        flat.insert(0, "seed",   df["seed"].values)
+        flat.insert(0, "run",    df["run"].values)
+        flat.insert(0, "method", df["method"].values)
+        flat.to_csv(f"{theta_name.lower()}_aplati_{method.lower()}.csv", index=False)
+
+# =========================================================
+# 14) EXPORT DES TABLEAUX DE SYNTHESE
+# =========================================================
+cost_stats.to_csv("stats_cout_par_methode.csv")
+best_method_runs.to_csv("meilleurs_runs_par_methode.csv", index=False)
+seed_comparison.to_csv("comparaison_par_seed.csv")
+theta_run_summary.to_csv("resume_thetas_par_run.csv", index=False)
+theta_stability.to_csv("stabilite_thetas_par_methode.csv", index=False)
+correlation_table.to_csv("correlations_cout_normes.csv", index=False)
+metrics_df.to_csv("metriques_test.csv")
+
+# =========================================================
+# 15) GRAPHIQUES
+# =========================================================
+
+# -----------------------------------------------------------
+# 15.1 — Violin plot des coûts finaux par méthode
+# -----------------------------------------------------------
+plt.figure(figsize=(8, 5))
+ax = sns.violinplot(
+    data=all_runs,
+    x="method", y="cout_final",
+    hue="method",
+    inner="box",
+    palette="Set2"
+)
+plt.title("Distribution du coût final par méthode", fontweight="bold")
+plt.xlabel("Méthode")
+plt.ylabel("Coût final")
+plt.grid(True, axis="y", alpha=0.3)
+plt.tight_layout()
+save_and_close("15_1_violin_cout_final.png")
+
+# -----------------------------------------------------------
+# 15.2 — Évolution du coût selon la seed
+# -----------------------------------------------------------
+plt.figure(figsize=(9, 5))
+for method, df in datasets.items():
+    df_sorted = df.sort_values("seed")
+    plt.plot(df_sorted["seed"], df_sorted["cout_final"], marker="o", label=method)
+plt.title("Coût final selon l'initialisation (seed)", fontweight="bold")
+plt.xlabel("Seed")
+plt.ylabel("Coût final")
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+save_and_close("15_2_cout_par_seed.png")
+
+# -----------------------------------------------------------
+# 15.3 — Coût final vs norme totale des theta
+# -----------------------------------------------------------
+plt.figure(figsize=(8, 5))
+for method, df in datasets.items():
+    plt.scatter(df["theta_total_norm"], df["cout_final"], label=method, alpha=0.7)
+plt.title("Coût final en fonction de la norme totale des theta", fontweight="bold")
+plt.xlabel("norme_theta_total")
+plt.ylabel("Coût final")
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+save_and_close("15_3_cout_vs_norme_theta.png")
+
+# -----------------------------------------------------------
+# 15.4 — Prédit vs Réel (meilleur run par méthode)
+# -----------------------------------------------------------
+fig, axes = plt.subplots(1, len(FILES), figsize=(14, 4), sharey=True)
+
+global_min = min(y_true.min(), min(p.min() for p in predictions.values()))
+global_max = max(y_true.max(), max(p.max() for p in predictions.values()))
+
+for ax, method in zip(axes, predictions):
+    y_pred = predictions[method]
+    rmse   = np.sqrt(mean_squared_error(y_true, y_pred))
+    r2     = 1 - np.sum((y_true - y_pred)**2) / np.sum((y_true - y_true.mean())**2)
+
+    ax.scatter(y_true, y_pred, alpha=0.4, s=10,
+               edgecolors="k", linewidths=0.2, color="goldenrod")
+    ax.plot([global_min, global_max], [global_min, global_max],
+            "r--", linewidth=1.5, label="Prédiction parfaite")
+    ax.set_title(f"{method}\nRMSE={rmse:.0f} | R²={r2:.3f}", fontsize=10)
+    ax.set_xlabel(f"{TARGET_NAME} réel ")
+    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=8)
+    ax.set_xlim(global_min - 100, global_max + 100)
+    ax.set_ylim(global_min - 100, global_max + 100)
+
+axes[0].set_ylabel(f"{TARGET_NAME} prédit ")
+plt.suptitle("Prédit vs Réel — meilleur run par méthode", fontweight="bold", fontsize=13)
+plt.tight_layout()
+save_and_close("15_4_predit_vs_reel.png")
+
+# -----------------------------------------------------------
+# 15.5 — Distribution des résidus
+# -----------------------------------------------------------
+from scipy.stats import gaussian_kde, norm
+
+fig, axes = plt.subplots(2, len(FILES), figsize=(14, 8))
+
+for col_idx, method in enumerate(predictions):
+    y_pred    = predictions[method]
+    residuals = y_true - y_pred
+
+    ax_hist = axes[0, col_idx]
+    ax_hist.set_title(f"{method}")
+    ax_hist.hist(residuals, bins=25, density=True,
+                 color="goldenrod", edgecolor="white", linewidth=0.8, alpha=0.8)
+
+    kde = gaussian_kde(residuals)
+    xs  = np.linspace(residuals.min(), residuals.max(), 200)
+    ax_hist.plot(xs, kde(xs), color="red", linewidth=2, label="KDE")
+
+    mu, sigma = np.mean(residuals), np.std(residuals)
+    ax_hist.plot(xs, norm.pdf(xs, mu, sigma), color="black",
+                 linestyle="--", linewidth=2, label="Gaussienne")
+    ax_hist.axvline(0, color="green", linestyle="--", linewidth=1.5, label="Zéro")
+    ax_hist.axvline(mu, color="orange", linestyle=":",
+                    linewidth=1.5, label=f"Moy={mu:.0f}")
+    ax_hist.set_xlabel("Résidu ")
+    ax_hist.grid(True, alpha=0.3)
+    ax_hist.legend(fontsize=7)
+    if col_idx == 0:
+        ax_hist.set_ylabel("Densité")
+
+    ax_scat = axes[1, col_idx]
+    ax_scat.scatter(y_pred, residuals, alpha=0.4, s=10,
+                    edgecolors="k", linewidths=0.2, color="goldenrod")
+    ax_scat.axhline(0, color="green", linestyle="--", linewidth=1.5)
+    ax_scat.axhline(residuals.mean(), color="darkred", linestyle=":",
+                    linewidth=1.5, label=f"moy={residuals.mean():.0f}")
+    ax_scat.set_xlabel(f"{TARGET_NAME} prédit ")
+    ax_scat.grid(True, alpha=0.3)
+    ax_scat.legend(fontsize=7)
+    if col_idx == 0:
+        ax_scat.set_ylabel("Résidus ")
+
+plt.suptitle("Distribution et analyse des résidus", fontweight="bold", fontsize=13)
+plt.tight_layout()
+save_and_close("15_5_distribution_residus.png")
+
+# -----------------------------------------------------------
+# 15.6 — Résidus meilleurs et pires runs
+# -----------------------------------------------------------
+n_bis    = 2
+top_runs = {m: [] for m in method_list}
+bot_runs = {m: [] for m in method_list}
+
+for method, df in datasets.items():
+    for _, run in df.nsmallest(n_bis, "cout_final").iterrows():
+        top_runs[method].append(
+            predict(X_test, run["theta0"], run["theta1"], run["theta2"])
+        )
+    for _, run in df.nlargest(n_bis, "cout_final").iterrows():
+        bot_runs[method].append(
+            predict(X_test, run["theta0"], run["theta1"], run["theta2"])
+        )
+
+for i in range(n_bis):
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4), sharey=True)
+    fig.suptitle(f"Résidus — Meilleur run {i+1}", fontweight="bold")
+
+    for ax, method in zip(axes, method_list):
+        y_pred     = top_runs[method][i]
+        residuals  = y_true - y_pred
+        mean_resid = residuals.mean()
+
+        ax.scatter(y_pred, residuals, alpha=0.4, s=10, edgecolors="k", linewidths=0.3)
+        ax.axhline(mean_resid, color="darkred", linestyle=":", linewidth=1.5,
+                   label=f"moy = {mean_resid:.0f}")
+        ax.axhline(0, color="green", linestyle="--", linewidth=1.5)
+        ax.set_title(method)
+        ax.set_xlabel(f"{TARGET_NAME} prédit ")
+        ax.grid(True, alpha=0.3)
+        ax.legend(fontsize=7)
+
+    axes[0].set_ylabel("Résidus ")
+    plt.tight_layout()
+    save_and_close(f"15_6a_residus_meilleur_{i+1}.png")
+
+for i in range(n_bis):
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4), sharey=True)
+    fig.suptitle(f"Résidus — Pire run {i+1}", fontweight="bold")
+
+    for ax, method in zip(axes, method_list):
+        y_pred     = bot_runs[method][i]
+        residuals  = y_true - y_pred
+        mean_resid = residuals.mean()
+
+        ax.scatter(y_pred, residuals, alpha=0.4, s=10, edgecolors="k", linewidths=0.3)
+        ax.axhline(mean_resid, color="darkred", linestyle=":", linewidth=1.5,
+                   label=f"moy = {mean_resid:.0f}")
+        ax.axhline(0, color="green", linestyle="--", linewidth=1.5)
+        ax.set_title(method)
+        ax.set_xlabel(f"{TARGET_NAME} prédit ")
+        ax.grid(True, alpha=0.3)
+        ax.legend(fontsize=7)
+
+    axes[0].set_ylabel("Résidus ")
+    plt.tight_layout()
+    save_and_close(f"15_6b_residus_pire_{i+1}.png")
+
+# -----------------------------------------------------------
+# 15.7 — Points les plus difficiles par méthode
+# -----------------------------------------------------------
+fig, axes = plt.subplots(1, len(FILES), figsize=(14, 5), sharey=True)
+
+for ax, method in zip(axes, FILES.keys()):
+    hard = pivot_errors.sort_values(by=method, ascending=False).head(nb_affichage)
+    signed_vals = pivot_errors_signed.loc[hard.index, method].values
+    labels = [f"Pt {idx}" for idx in hard.index]
+    colors = ["red" if v > 0 else "mediumseagreen" for v in signed_vals]
+
+    ax.bar(labels, signed_vals, color=colors, edgecolor="k")
+    ax.axhline(0, color="black", linewidth=1)
+    ax.set_title(f"{method}")
+    ax.grid(True, axis="y", alpha=0.3)
+
+axes[0].set_ylabel("Erreur ")
+fig.suptitle(f"{nb_affichage} points aux erreurs les plus importantes",
+             fontweight="bold", fontsize=12)
+plt.tight_layout()
+save_and_close("15_7_points_difficiles.png")
+
+# -----------------------------------------------------------
+# 15.8 — Points les plus simples par méthode
+# -----------------------------------------------------------
+fig, axes = plt.subplots(1, len(FILES), figsize=(14, 5), sharey=True)
+
+for ax, method in zip(axes, FILES.keys()):
+    easy = pivot_errors.sort_values(by=method, ascending=True).head(nb_affichage)
+    signed_vals = pivot_errors_signed.loc[easy.index, method].values
+    labels = [f"Pt {idx}" for idx in easy.index]
+    colors = ["red" if v > 0 else "mediumseagreen" for v in signed_vals]
+
+    ax.bar(labels, signed_vals, color=colors, edgecolor="k")
+    ax.axhline(0, color="black", linewidth=1)
+    ax.set_title(f"{method}")
+    ax.grid(True, axis="y", alpha=0.3)
+
+axes[0].set_ylabel("Erreur ")
+fig.suptitle(f"{nb_affichage} points aux erreurs les moins importantes",
+             fontweight="bold", fontsize=12)
+plt.tight_layout()
+save_and_close("15_8_points_simples.png")
+
+print("\n==============================")
+print("ANALYSE TERMINÉE")
+print("Toutes les figures ont été sauvegardées dans le dossier figures")
+print("==============================")
